@@ -7,7 +7,7 @@ export async function requestEmailCode(
   email: string,
   captchaToken: string,
 ): Promise<void> {
-  await apiFetch<{ status: string }>("/auth/email/request", {
+  await apiFetch<{ status: string }>("/api/auth/email/request", {
     method: "POST",
     body: JSON.stringify({ email, captcha_token: captchaToken }),
     skipAuthRetry: true,
@@ -18,7 +18,7 @@ export async function verifyEmailCode(
   email: string,
   code: string,
 ): Promise<TokenPair> {
-  const pair = await apiFetch<TokenPair>("/auth/email/verify", {
+  const pair = await apiFetch<TokenPair>("/api/auth/email/verify", {
     method: "POST",
     body: JSON.stringify({ email, code }),
     skipAuthRetry: true,
@@ -40,9 +40,10 @@ export interface TelegramAuthPayload {
 }
 
 export async function getTelegramWidgetConfig(): Promise<{
+  bot_id: number;
   bot_username: string;
 }> {
-  return apiFetch<{ bot_username: string }>(
+  return apiFetch<{ bot_id: number; bot_username: string }>(
     "/api/auth/telegram/widget-config",
     { skipAuthRetry: true },
   );
@@ -63,7 +64,7 @@ export async function loginWithTelegramPayload(
 // === Общие ===
 
 export async function me(): Promise<UserOut> {
-  return apiFetch<UserOut>("/auth/me");
+  return apiFetch<UserOut>("/api/auth/me");
 }
 
 export function logout(): void {

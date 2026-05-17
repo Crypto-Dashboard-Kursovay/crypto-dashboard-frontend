@@ -15,7 +15,7 @@ declare global {
     Telegram?: {
       Login?: {
         auth: (
-          options: { bot_id: string; request_access?: string },
+          options: { bot_id: number; request_access?: string },
           cb: (data: unknown) => void,
         ) => void;
       };
@@ -49,6 +49,7 @@ function ensureScriptLoaded(): Promise<void> {
 
 export function TelegramButton({ sx, onError }: Props) {
   const { loginWithTelegram } = useAuth();
+  const [botId, setBotId] = useState<number | null>(null);
   const [botUsername, setBotUsername] = useState<string | null>(null);
   const inFlight = useRef(false);
 
@@ -56,7 +57,9 @@ export function TelegramButton({ sx, onError }: Props) {
     let cancelled = false;
     getTelegramWidgetConfig()
       .then((cfg) => {
-        if (!cancelled) setBotUsername(cfg.bot_username);
+        if (cancelled) return;
+        setBotId(cfg.bot_id);
+        setBotUsername(cfg.bot_username);
       })
       .catch(() => {
         if (!cancelled && onError) onError("Telegram пока не настроен");
@@ -68,7 +71,7 @@ export function TelegramButton({ sx, onError }: Props) {
 
   const handleClick = async () => {
     if (inFlight.current) return;
-    if (!botUsername) {
+    if (!botId) {
       onError?.("Telegram пока не настроен");
       return;
     }
@@ -78,8 +81,9 @@ export function TelegramButton({ sx, onError }: Props) {
       if (!window.Telegram?.Login) {
         throw new Error("Telegram widget unavailable");
       }
+      // Telegram.Login.auth требует numeric bot_id (число до ':' в bot token).
       window.Telegram.Login.auth(
-        { bot_id: botUsername, request_access: "write" },
+        { bot_id: botId, request_access: "write" },
         (data) => {
           if (!data) {
             onError?.("Telegram: вход отменён");
@@ -100,12 +104,16 @@ export function TelegramButton({ sx, onError }: Props) {
     }
   };
 
+  const tooltip = botId
+    ? `Войти через Telegram (@${botUsername ?? ""})`
+    : "Telegram пока не настроен";
+
   return (
-    <Tooltip title={botUsername ? "Войти через Telegram" : "Telegram пока не настроен"}>
+    <Tooltip title={tooltip}>
       <span>
         <IconButton
           onClick={handleClick}
-          disabled={!botUsername}
+          disabled={!botId}
           aria-label="Войти через Telegram"
           sx={{
             bgcolor: "#26A5E4",
