@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link as RouterLink, useNavigate } from "react-router";
 import {
+  Autocomplete,
   Box,
   Typography,
   Stack,
@@ -22,6 +23,7 @@ import { ArrowBack, PlayArrow } from "@mui/icons-material";
 import { ApiHttpError } from "../../api/client";
 import { listCredentials } from "../../api/credentials";
 import { createBot, startBot } from "../../api/bots";
+import { listExchangeSymbols } from "../../api/exchanges";
 import type { CredentialOut } from "../../api/types";
 
 // Реестр стратегий — должен соответствовать default_registry() в движке
@@ -74,9 +76,16 @@ export function CreateStrategy() {
   const [symbol, setSymbol] = useState("BTC/USDT");
   const [timeframe, setTimeframe] = useState<string>("1m");
   const [params, setParams] = useState<Record<string, string>>(defaultParams("SmaCross"));
+  const [topSymbols, setTopSymbols] = useState<string[]>([]);
+  const [symbolsLoading, setSymbolsLoading] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const selectedCred = useMemo(
+    () => creds?.find((c) => c.id === credId),
+    [creds, credId],
+  );
 
   useEffect(() => {
     listCredentials()
@@ -88,6 +97,17 @@ export function CreateStrategy() {
         setError(err instanceof ApiHttpError ? err.message : "Не удалось загрузить ключи"),
       );
   }, [credId]);
+
+  // Топ-10 USDT-пар выбранной биржи. Кэшируется на бэке (Redis, TTL 1ч),
+  // здесь просто дёргаем при смене credential.
+  useEffect(() => {
+    if (!selectedCred) return;
+    setSymbolsLoading(true);
+    listExchangeSymbols(selectedCred.exchange)
+      .then(setTopSymbols)
+      .catch(() => setTopSymbols([]))
+      .finally(() => setSymbolsLoading(false));
+  }, [selectedCred]);
 
   const onStrategyChange = (name: StrategyName) => {
     setStrategy(name);
@@ -174,15 +194,27 @@ export function CreateStrategy() {
                   </FormControl>
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>
-                  <TextField
-                    label="Торговая пара"
-                    size="small"
+                  <Autocomplete
+                    freeSolo
                     value={symbol}
-                    onChange={(e) => setSymbol(e.target.value)}
-                    required
-                    fullWidth
-                    helperText="например, BTC/USDT"
+                    onChange={(_e, v) => setSymbol((v ?? "").toString())}
+                    onInputChange={(_e, v) => setSymbol(v)}
+                    options={topSymbols}
+                    loading={symbolsLoading}
                     disabled={busy}
+                    renderInput={(p) => (
+                      <TextField
+                        {...p}
+                        label="Торговая пара"
+                        size="small"
+                        required
+                        helperText={
+                          topSymbols.length > 0
+                            ? `Топ-${topSymbols.length} USDT-пар по объёму`
+                            : "например, BTC/USDT"
+                        }
+                      />
+                    )}
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>

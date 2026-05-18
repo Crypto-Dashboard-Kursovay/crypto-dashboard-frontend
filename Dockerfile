@@ -11,10 +11,10 @@ COPY . .
 # Vite читает VITE_* env-переменные на этапе билда — пробрасываем их через build args.
 ARG VITE_API_URL=http://localhost:8000/api/
 ARG VITE_WS_URL=ws://localhost:8000/ws/updates
-ARG VITE_HCAPTCHA_SITEKEY=
+ARG VITE_TURNSTILE_SITEKEY=
 ENV VITE_API_URL=$VITE_API_URL \
     VITE_WS_URL=$VITE_WS_URL \
-    VITE_HCAPTCHA_SITEKEY=$VITE_HCAPTCHA_SITEKEY
+    VITE_TURNSTILE_SITEKEY=$VITE_TURNSTILE_SITEKEY
 RUN pnpm build
 
 FROM nginx:1.27-alpine AS runtime

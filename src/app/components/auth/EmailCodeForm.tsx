@@ -10,12 +10,15 @@ import {
   Typography,
 } from "@mui/material";
 import { ArrowBack } from "@mui/icons-material";
-import HCaptcha from "@hcaptcha/react-hcaptcha";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 import { useAuth } from "../../../auth/AuthContext";
 import { ApiHttpError } from "../../../api/client";
 
-const SITE_KEY = (import.meta.env.VITE_HCAPTCHA_SITEKEY as string | undefined) ?? "";
+const SITE_KEY =
+  (import.meta.env.VITE_TURNSTILE_SITEKEY as string | undefined) ??
+  (import.meta.env.VITE_HCAPTCHA_SITEKEY as string | undefined) ??
+  "";
 const RESEND_COOLDOWN_SEC = 60;
 
 interface Props {
@@ -28,7 +31,7 @@ export function EmailCodeForm({ onSuccess }: Props) {
   const [step, setStep] = useState<"email" | "code">("email");
   const [email, setEmail] = useState("");
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const captchaRef = useRef<HCaptcha | null>(null);
+  const captchaRef = useRef<TurnstileInstance | null>(null);
 
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +58,7 @@ export function EmailCodeForm({ onSuccess }: Props) {
       setResendCooldown(RESEND_COOLDOWN_SEC);
     } catch (err) {
       setError(err instanceof ApiHttpError ? err.message : "Не удалось отправить код");
-      captchaRef.current?.resetCaptcha();
+      captchaRef.current?.reset();
       setCaptchaToken(null);
     } finally {
       setBusy(false);
@@ -115,18 +118,18 @@ export function EmailCodeForm({ onSuccess }: Props) {
           />
           {SITE_KEY ? (
             <Box display="flex" justifyContent="center">
-              <HCaptcha
+              <Turnstile
                 ref={captchaRef}
-                sitekey={SITE_KEY}
-                theme="dark"
-                onVerify={(token) => setCaptchaToken(token)}
+                siteKey={SITE_KEY}
+                options={{ theme: "dark", size: "flexible" }}
+                onSuccess={(token: string) => setCaptchaToken(token)}
                 onExpire={() => setCaptchaToken(null)}
                 onError={() => setCaptchaToken(null)}
               />
             </Box>
           ) : (
             <Alert severity="info" variant="outlined">
-              hCaptcha не настроена (VITE_HCAPTCHA_SITEKEY пустой). На проде обязательна.
+              Cloudflare Turnstile не настроена (VITE_TURNSTILE_SITEKEY пустой). На проде обязательна.
             </Alert>
           )}
           <Button

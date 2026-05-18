@@ -26,7 +26,15 @@ export interface CredentialIn {
   label: string;
   api_key: string;
   api_secret: string;
+  passphrase?: string;   // OKX (и старый Coinbase Pro)
   testnet?: boolean;
+}
+
+export interface ExchangeMeta {
+  name: string;
+  display_name: string;
+  requires_passphrase: boolean;
+  supports_testnet: boolean;
 }
 
 export interface BotOut {
