@@ -14,7 +14,9 @@ import {
 } from "@mui/material";
 import {
   Add,
+  GridOn,
   PlayArrow,
+  Savings,
   Stop,
   DeleteOutline,
   Refresh,
@@ -100,10 +102,28 @@ export function Strategies() {
         mb={4}
       >
         <Typography variant="h1">Стратегии</Typography>
-        <Stack direction="row" spacing={1.5}>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
           <IconButton onClick={() => void refresh()} aria-label="Обновить">
             <Refresh />
           </IconButton>
+          <Button
+            component={RouterLink}
+            to="/strategies/new?template=dca"
+            variant="outlined"
+            color="inherit"
+            startIcon={<Savings />}
+          >
+            Создать DCA
+          </Button>
+          <Button
+            component={RouterLink}
+            to="/strategies/new?template=grid"
+            variant="outlined"
+            color="inherit"
+            startIcon={<GridOn />}
+          >
+            Создать Grid
+          </Button>
           <Button
             component={RouterLink}
             to="/strategies/new"
@@ -136,17 +156,41 @@ export function Strategies() {
             <RouterLink to="/settings" style={{ color: "inherit" }}>
               <strong>Настройках</strong>
             </RouterLink>
-            , потом нажмите «Создать стратегию».
+            , потом выберите тип стратегии.
           </Typography>
-          <Button
-            component={RouterLink}
-            to="/strategies/new"
-            variant="contained"
-            color="primary"
-            startIcon={<Add />}
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            spacing={1.5}
+            justifyContent="center"
           >
-            Создать первую стратегию
-          </Button>
+            <Button
+              component={RouterLink}
+              to="/strategies/new"
+              variant="contained"
+              color="primary"
+              startIcon={<Add />}
+            >
+              Создать стратегию
+            </Button>
+            <Button
+              component={RouterLink}
+              to="/strategies/new?template=dca"
+              variant="outlined"
+              color="inherit"
+              startIcon={<Savings />}
+            >
+              Создать DCA
+            </Button>
+            <Button
+              component={RouterLink}
+              to="/strategies/new?template=grid"
+              variant="outlined"
+              color="inherit"
+              startIcon={<GridOn />}
+            >
+              Создать Grid
+            </Button>
+          </Stack>
         </Card>
       ) : (
         <Grid container spacing={2}>

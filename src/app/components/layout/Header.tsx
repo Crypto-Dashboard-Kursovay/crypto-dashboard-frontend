@@ -1,5 +1,5 @@
-import { AppBar, Toolbar, Box, IconButton, Stack, Typography, Button } from "@mui/material";
-import { Menu as MenuIcon, KeyboardArrowDown, Logout } from "@mui/icons-material";
+import { AppBar, Toolbar, IconButton, Stack, Typography, Button } from "@mui/material";
+import { Menu as MenuIcon, Logout, CurrencyBitcoin } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 
 import { useAuth } from "../../../auth/AuthContext";
@@ -29,56 +29,53 @@ export function Header({ drawerWidth, isResizing, handleDrawerToggle }: HeaderPr
       }}
     >
       <Toolbar sx={{ justifyContent: "space-between" }}>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
+        <Stack direction="row" alignItems="center" spacing={1.5}>
           <IconButton
             color="inherit"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: "none" } }}
+            sx={{ mr: 1, display: { md: "none" } }}
           >
             <MenuIcon />
           </IconButton>
-        </Box>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Box
-            sx={{
-              display: { xs: "none", sm: "flex" },
-              alignItems: "center",
-              bgcolor: "background.default",
-              border: 1,
-              borderColor: "divider",
-              borderRadius: 2,
-              px: 1.5,
-              py: 0.5,
-              cursor: "pointer",
-            }}
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            sx={{ display: { xs: "flex", md: "none" } }}
           >
-            <Typography variant="body2" sx={{ mr: 1, fontWeight: 500 }}>
-              Binance Testnet
+            <CurrencyBitcoin sx={{ fontSize: 22, color: "primary.main" }} />
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{ letterSpacing: "-0.01em" }}
+              noWrap
+            >
+              Crypto Dashboard
             </Typography>
-            <KeyboardArrowDown fontSize="small" color="action" />
-          </Box>
-          {user && (
-            <Stack direction="row" spacing={1.5} alignItems="center">
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                sx={{ display: { xs: "none", sm: "block" } }}
-              >
-                {user.email}
-              </Typography>
-              <Button
-                size="small"
-                color="inherit"
-                onClick={logout}
-                startIcon={<Logout fontSize="small" />}
-                sx={{ textTransform: "none" }}
-              >
-                Выйти
-              </Button>
-            </Stack>
-          )}
+          </Stack>
         </Stack>
+        {user && (
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ display: { xs: "none", sm: "block" } }}
+              noWrap
+            >
+              {user.email}
+            </Typography>
+            <Button
+              size="small"
+              color="inherit"
+              onClick={logout}
+              startIcon={<Logout fontSize="small" />}
+              sx={{ textTransform: "none" }}
+            >
+              Выйти
+            </Button>
+          </Stack>
+        )}
       </Toolbar>
     </AppBar>
   );

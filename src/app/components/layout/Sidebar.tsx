@@ -1,5 +1,5 @@
-import { Box, Toolbar, Typography, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
-import { AutoGraph, Dashboard, ShowChart, History, ReceiptLong, Settings } from "@mui/icons-material";
+import { Box, IconButton, Toolbar, Typography, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from "@mui/material";
+import { AutoGraph, CurrencyBitcoin, Dashboard, GitHub, ShowChart, History, ReceiptLong, Settings } from "@mui/icons-material";
 import { NavLink, useLocation } from "react-router";
 import { useTheme } from "@mui/material/styles";
 
@@ -39,15 +39,19 @@ export function Sidebar({ isMini, isMobile, setMobileOpen }: SidebarProps) {
           borderBottom: `1px solid ${theme.palette.divider}`,
         }}
       >
-        <AutoGraph color="primary" sx={{ fontSize: 28, flexShrink: 0 }} />
+        <CurrencyBitcoin color="primary" sx={{ fontSize: 28, flexShrink: 0 }} />
         <Typography
           variant="h6"
           color="text.primary"
           fontWeight="bold"
           noWrap
-          sx={{ opacity: isMini ? 0 : 1, transition: "opacity 0.2s" }}
+          sx={{
+            opacity: isMini ? 0 : 1,
+            transition: "opacity 0.2s",
+            letterSpacing: "-0.01em",
+          }}
         >
-          AlgoTrader
+          Crypto Dashboard
         </Typography>
       </Toolbar>
       <List
@@ -108,7 +112,10 @@ export function Sidebar({ isMini, isMobile, setMobileOpen }: SidebarProps) {
         sx={{
           p: 1.5,
           borderTop: `1px solid ${theme.palette.divider}`,
-          textAlign: "center",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: isMini ? "center" : "space-between",
+          gap: 1,
         }}
       >
         <Typography
@@ -116,9 +123,24 @@ export function Sidebar({ isMini, isMobile, setMobileOpen }: SidebarProps) {
           color="text.secondary"
           noWrap
           sx={{ opacity: isMini ? 0 : 1, transition: "opacity 0.2s" }}
+          title={`Build: ${__BUILD_DATE__}`}
         >
-          v1.0.0-beta
+          v{__APP_VERSION__} · {__GIT_COMMIT__}
         </Typography>
+        <IconButton
+          size="small"
+          component="a"
+          href="https://github.com/VadimDenisovich/crypto-dashboard"
+          target="_blank"
+          rel="noreferrer noopener"
+          aria-label="GitHub repository"
+          sx={{
+            color: "text.secondary",
+            "&:hover": { color: "text.primary" },
+          }}
+        >
+          <GitHub fontSize="small" />
+        </IconButton>
       </Box>
     </Box>
   );

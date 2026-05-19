@@ -302,8 +302,13 @@ export function Settings() {
                     variant="contained"
                     color="primary"
                     disabled={submitting || !apiKey || !apiSecret}
+                    startIcon={
+                      submitting ? (
+                        <CircularProgress size={14} color="inherit" />
+                      ) : null
+                    }
                   >
-                    {submitting ? "Проверяем ключ..." : "Сохранить"}
+                    {submitting ? "Проверяем ключ" : "Сохранить"}
                   </Button>
                   <Typography
                     variant="caption"

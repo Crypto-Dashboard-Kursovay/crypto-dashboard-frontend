@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   Card,
   Box,
@@ -9,49 +10,54 @@ import {
   TableCell,
   TableBody,
   Chip,
+  CircularProgress,
 } from "@mui/material";
 import { PlayCircleOutline } from "@mui/icons-material";
 
-const recentTrades = [
-  {
-    id: 1,
-    time: "14:32:01",
-    pair: "BTC/USDT",
-    type: "Buy",
-    price: "67,450.00",
-    amount: "0.05",
-    fee: "0.67",
-  },
-  {
-    id: 2,
-    time: "14:15:22",
-    pair: "ETH/USDT",
-    type: "Sell",
-    price: "3,450.20",
-    amount: "1.20",
-    fee: "0.41",
-  },
-  {
-    id: 3,
-    time: "13:50:10",
-    pair: "BTC/USDT",
-    type: "Buy",
-    price: "67,200.50",
-    amount: "0.02",
-    fee: "0.26",
-  },
-  {
-    id: 4,
-    time: "13:10:05",
-    pair: "BNB/USDT",
-    type: "Sell",
-    price: "580.40",
-    amount: "5.00",
-    fee: "0.29",
-  },
-];
+import { ApiHttpError } from "../../../api/client";
+import { listTrades, type TradeOut } from "../../../api/trades";
+
+function formatTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleTimeString("ru-RU", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export function RecentTradesWidget() {
+  const [trades, setTrades] = useState<TradeOut[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () => {
+      listTrades({ limit: 10 })
+        .then((list) => {
+          if (cancelled) return;
+          setTrades(list);
+          setError(null);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setError(
+            err instanceof ApiHttpError ? err.message : "Не удалось загрузить сделки",
+          );
+          setTrades([]);
+        });
+    };
+    load();
+    const t = setInterval(load, 15_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
   return (
     <Card sx={{ height: "100%" }}>
       <Box
@@ -80,44 +86,62 @@ export function RecentTradesWidget() {
             <TableRow>
               <TableCell>Время</TableCell>
               <TableCell>Пара</TableCell>
-              <TableCell>Тип</TableCell>
+              <TableCell>Сторона</TableCell>
               <TableCell align="right">Цена</TableCell>
               <TableCell align="right">Объём</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {recentTrades.map((trade) => (
-              <TableRow key={trade.id} hover>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary" noWrap>
-                    {trade.time}
-                  </Typography>
+            {trades === null ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <Box py={2} display="flex" justifyContent="center">
+                    <CircularProgress size={20} />
+                  </Box>
                 </TableCell>
-                <TableCell>
-                  <Typography variant="body2" fontWeight="medium" noWrap>
-                    {trade.pair}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography
-                    variant="body2"
-                    color={trade.type === "Buy" ? "success.main" : "error.main"}
-                  >
-                    {trade.type}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" noWrap>
-                    {trade.price}
-                  </Typography>
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" noWrap>
-                    {trade.amount}
+              </TableRow>
+            ) : trades.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  <Typography variant="body2" color="text.disabled" py={2}>
+                    {error ?? "Нет сделок"}
                   </Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              trades.map((trade) => (
+                <TableRow key={trade.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {formatTime(trade.created_at)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="medium" noWrap>
+                      {trade.symbol}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography
+                      variant="body2"
+                      color={trade.side === "buy" ? "success.main" : "error.main"}
+                    >
+                      {trade.side === "buy" ? "Buy" : "Sell"}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" noWrap>
+                      {trade.price}
+                    </Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" noWrap>
+                      {trade.size}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>

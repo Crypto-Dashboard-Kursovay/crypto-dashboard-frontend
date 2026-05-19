@@ -8,9 +8,10 @@ import {
   TableRow,
   TableCell,
   TableBody,
-  Button,
 } from "@mui/material";
 
+// Источника данных по открытым позициям пока нет (ExchangeAdapter.get_positions
+// добавится в Phase 5). Заглушка с placeholder-строкой.
 export function PositionsWidget() {
   return (
     <Card sx={{ height: "100%" }}>
@@ -29,46 +30,11 @@ export function PositionsWidget() {
             </TableRow>
           </TableHead>
           <TableBody>
-            <TableRow hover>
-              <TableCell>
-                <Typography variant="body2" fontWeight="medium">
-                  BTC/USDT
+            <TableRow>
+              <TableCell colSpan={3} align="center">
+                <Typography variant="body2" color="text.disabled" py={2}>
+                  Нет открытых позиций
                 </Typography>
-                <Typography variant="caption" color="success.main">
-                  Long
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Typography variant="body2">0.05 BTC</Typography>
-                <Typography variant="caption" color="success.main">
-                  +0.24%
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Button size="small" variant="outlined" color="inherit">
-                  Закрыть
-                </Button>
-              </TableCell>
-            </TableRow>
-            <TableRow hover>
-              <TableCell>
-                <Typography variant="body2" fontWeight="medium">
-                  ETH/USDT
-                </Typography>
-                <Typography variant="caption" color="success.main">
-                  Long
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Typography variant="body2">1.2 ETH</Typography>
-                <Typography variant="caption" color="error.main">
-                  -0.87%
-                </Typography>
-              </TableCell>
-              <TableCell align="right">
-                <Button size="small" variant="outlined" color="inherit">
-                  Закрыть
-                </Button>
               </TableCell>
             </TableRow>
           </TableBody>

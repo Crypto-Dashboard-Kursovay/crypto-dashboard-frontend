@@ -118,14 +118,23 @@ export function EmailCodeForm({ onSuccess }: Props) {
           />
           {SITE_KEY ? (
             <Box display="flex" justifyContent="center">
-              <Turnstile
-                ref={captchaRef}
-                siteKey={SITE_KEY}
-                options={{ theme: "dark", size: "flexible" }}
-                onSuccess={(token: string) => setCaptchaToken(token)}
-                onExpire={() => setCaptchaToken(null)}
-                onError={() => setCaptchaToken(null)}
-              />
+              <Box
+                sx={{
+                  borderRadius: 3,
+                  overflow: "hidden",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  "& iframe": { display: "block" },
+                }}
+              >
+                <Turnstile
+                  ref={captchaRef}
+                  siteKey={SITE_KEY}
+                  options={{ theme: "dark", size: "flexible" }}
+                  onSuccess={(token: string) => setCaptchaToken(token)}
+                  onExpire={() => setCaptchaToken(null)}
+                  onError={() => setCaptchaToken(null)}
+                />
+              </Box>
             </Box>
           ) : (
             <Alert severity="info" variant="outlined">

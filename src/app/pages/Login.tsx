@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import {
   Alert,
@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 
 import { getOAuthStartUrl } from "../../api/auth";
+import { useAuth } from "../../auth/AuthContext";
 import { EmailCodeForm } from "../components/auth/EmailCodeForm";
 import { TelegramButton } from "../components/auth/TelegramButton";
 import {
@@ -27,9 +28,9 @@ interface LocationState {
 
 // Общий стиль всех 4 социальных кнопок (ghost-button в стиле grok.com).
 const socialBtnSx = {
-  width: 44,
-  height: 44,
-  borderRadius: 12,
+  width: 52,
+  height: 52,
+  borderRadius: 3,
   bgcolor: "rgba(255, 255, 255, 0.04)",
   border: "1px solid rgba(255, 255, 255, 0.1)",
   transition: "all 0.15s ease-out",
@@ -45,7 +46,18 @@ export function Login() {
   const location = useLocation();
   const from = (location.state as LocationState | null)?.from ?? "/";
 
+  const { isAuthenticated, isReady } = useAuth();
+
   const [oauthError, setOauthError] = useState<string | null>(null);
+
+  // Единая точка редиректа после успешного логина любым способом
+  // (Telegram, OAuth callback, email-код). Раньше Telegram оставлял
+  // юзера на /login потому что TelegramButton сам не звал navigate.
+  useEffect(() => {
+    if (isReady && isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [isReady, isAuthenticated, from, navigate]);
 
   const goOAuth = (provider: "google" | "yandex" | "github") => {
     window.location.href = getOAuthStartUrl(provider);
@@ -78,16 +90,7 @@ export function Login() {
           },
         }}
       >
-        <CardContent sx={{ p: 4 }}>
-          <Box mb={3.5}>
-            <Typography variant="h1" mb={0.75}>
-              Crypto Dashboard
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Войдите, чтобы начать торговать
-            </Typography>
-          </Box>
-
+        <CardContent sx={{ p: 4, pt: 3.5 }}>
           {/* 4 социальные кнопки */}
           <Stack
             direction="row"
@@ -99,7 +102,14 @@ export function Login() {
               <IconButton
                 onClick={() => goOAuth("google")}
                 aria-label="Google"
-                sx={{ ...socialBtnSx, bgcolor: "rgba(255, 255, 255, 0.96)", "&:hover": { ...socialBtnSx["&:hover"], bgcolor: "rgba(255, 255, 255, 1)" } }}
+                sx={{
+                  ...socialBtnSx,
+                  bgcolor: "rgba(255, 255, 255, 0.96)",
+                  "&:hover": {
+                    ...socialBtnSx["&:hover"],
+                    bgcolor: "rgba(255, 255, 255, 1)",
+                  },
+                }}
               >
                 <GoogleIcon />
               </IconButton>
@@ -108,7 +118,15 @@ export function Login() {
               <IconButton
                 onClick={() => goOAuth("yandex")}
                 aria-label="Яндекс"
-                sx={{ ...socialBtnSx, bgcolor: "#FC3F1D", borderColor: "rgba(255,255,255,0.05)", "&:hover": { ...socialBtnSx["&:hover"], bgcolor: "#e0361a" } }}
+                sx={{
+                  ...socialBtnSx,
+                  bgcolor: "#FC3F1D",
+                  borderColor: "rgba(255,255,255,0.05)",
+                  "&:hover": {
+                    ...socialBtnSx["&:hover"],
+                    bgcolor: "#e0361a",
+                  },
+                }}
               >
                 <YandexIcon />
               </IconButton>
@@ -116,9 +134,9 @@ export function Login() {
             <TelegramButton
               onError={setOauthError}
               sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
+                width: 52,
+                height: 52,
+                borderRadius: 3,
                 border: "1px solid rgba(255, 255, 255, 0.05)",
                 transition: "all 0.15s ease-out",
                 "&:hover": { transform: "translateY(-1px)" },
@@ -153,17 +171,6 @@ export function Login() {
           </Divider>
 
           <EmailCodeForm onSuccess={() => navigate(from, { replace: true })} />
-
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            display="block"
-            textAlign="center"
-            mt={3}
-            sx={{ opacity: 0.6 }}
-          >
-            Аккаунт создастся автоматически при первом входе.
-          </Typography>
         </CardContent>
       </Card>
     </Box>

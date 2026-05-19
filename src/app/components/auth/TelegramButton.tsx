@@ -117,8 +117,9 @@ export function TelegramButton({ sx, onError }: Props) {
           aria-label="Войти через Telegram"
           sx={{
             bgcolor: "#26A5E4",
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
+            borderRadius: 3,
             "&:hover": { bgcolor: "#1f8fc8" },
             "&.Mui-disabled": { bgcolor: "rgba(38,165,228,0.3)" },
             ...sx,
