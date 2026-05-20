@@ -64,3 +64,43 @@ export interface BotParamsIn {
 export interface ApiError {
   detail: string;
 }
+
+// --- Dashboard data types ---
+
+export interface PositionOut {
+  id: string;
+  credential_id: string;
+  symbol: string;
+  side: string;
+  entry_price: string;
+  size: string;
+  current_pnl: string;
+  observed_at: string;
+}
+
+export interface BalanceOut {
+  credential_id: string;
+  currency: string;
+  free: string;
+  used: string;
+  total: string;
+  observed_at: string;
+}
+
+export interface BalanceSummaryOut {
+  total_equity: string;
+  free_total: string;
+  used_total: string;
+  currencies: BalanceOut[];
+  open_pnl: string;
+  position_count: number;
+}
+
+export interface CandleOut {
+  timestamp: string;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+}
