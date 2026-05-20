@@ -2,6 +2,7 @@ import { apiFetch } from "./client";
 
 export interface BacktestRunIn {
   strategy_class: string;
+  exchange: string;
   symbol: string;
   timeframe: string;
   params: Record<string, unknown>;
@@ -40,6 +41,7 @@ export interface BacktestResult {
 export interface BacktestJobOut {
   id: string;
   status: "queued" | "running" | "completed" | "failed";
+  exchange: string;
   strategy_class: string;
   symbol: string;
   timeframe: string;
@@ -56,6 +58,7 @@ export interface BacktestJobOut {
 export interface BacktestJobSummary {
   id: string;
   status: BacktestJobOut["status"];
+  exchange: string;
   strategy_class: string;
   symbol: string;
   timeframe: string;

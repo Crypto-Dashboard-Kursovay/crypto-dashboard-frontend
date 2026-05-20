@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Box,
   Button,
@@ -19,125 +19,12 @@ import {
   Search,
 } from "@mui/icons-material";
 
-import { API_ORIGIN, getAccessToken } from "../../api/client";
-
-type LogLevel = "INFO" | "WARNING" | "ERROR";
-
-interface LogLine {
-  id: number;
-  time: string;          // ISO timestamp
-  level: LogLevel;
-  source: string;        // strategy_error | new_trade | balance_update | ws
-  message: string;
-}
-
-function buildWsUrl(token: string): string {
-  // API_ORIGIN: либо "http://host:8000" либо "" (когда VITE_API_URL=/api/)
-  if (!API_ORIGIN) {
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${window.location.host}/ws/updates?token=${encodeURIComponent(token)}`;
-  }
-  const httpOrigin = new URL(API_ORIGIN);
-  const proto = httpOrigin.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${httpOrigin.host}/ws/updates?token=${encodeURIComponent(token)}`;
-}
+import { useLogs, type LogLevel } from "../LogsContext";
 
 export function Logs() {
-  const [lines, setLines] = useState<LogLine[]>([]);
-  const [paused, setPaused] = useState(false);
+  const { lines, wsState, paused, setPaused, clear } = useLogs();
   const [levelFilter, setLevelFilter] = useState<LogLevel | "ALL">("ALL");
   const [search, setSearch] = useState("");
-  const [wsState, setWsState] = useState<"connecting" | "open" | "closed">(
-    "connecting",
-  );
-  const idCounter = useRef(0);
-  const pausedRef = useRef(false);
-  pausedRef.current = paused;
-
-  useEffect(() => {
-    let cancelled = false;
-    let ws: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const append = (line: Omit<LogLine, "id">) => {
-      if (pausedRef.current) return;
-      setLines((prev) => {
-        idCounter.current += 1;
-        const next = [...prev, { ...line, id: idCounter.current }];
-        // Бесконечный лог быстро съест память — режем до 500 строк
-        return next.length > 500 ? next.slice(next.length - 500) : next;
-      });
-    };
-
-    const connect = () => {
-      if (cancelled) return;
-      const token = getAccessToken();
-      if (!token) {
-        setWsState("closed");
-        return;
-      }
-      setWsState("connecting");
-      ws = new WebSocket(buildWsUrl(token));
-      ws.onopen = () => {
-        if (cancelled) return;
-        setWsState("open");
-        append({
-          time: new Date().toISOString(),
-          level: "INFO",
-          source: "ws",
-          message: "WebSocket подключён",
-        });
-      };
-      ws.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data) as { type?: string; data?: unknown };
-          if (msg.type === "ping") return;
-          if (msg.type === "strategy_error") {
-            const d = (msg.data ?? {}) as Record<string, unknown>;
-            append({
-              time: new Date().toISOString(),
-              level: (d.kind === "execution_failed" ? "ERROR" : "WARNING") as LogLevel,
-              source: "strategy_error",
-              message: `[${d.strategy ?? "?"}] ${d.kind ?? "?"}: ${d.message ?? ""}`,
-            });
-          } else if (msg.type === "new_trade") {
-            const d = (msg.data ?? {}) as Record<string, unknown>;
-            append({
-              time: new Date().toISOString(),
-              level: "INFO",
-              source: "new_trade",
-              message: `${String(d.side ?? "").toUpperCase()} ${d.symbol ?? "?"} size=${d.size ?? "?"} price=${d.price ?? "?"} (${d.strategy ?? "?"})`,
-            });
-          } else if (msg.type === "balance_update") {
-            append({
-              time: new Date().toISOString(),
-              level: "INFO",
-              source: "balance_update",
-              message: "Обновление баланса",
-            });
-          }
-        } catch {
-          // ignore malformed
-        }
-      };
-      ws.onclose = () => {
-        if (cancelled) return;
-        setWsState("closed");
-        // Reconnect with backoff 5s
-        reconnectTimer = setTimeout(connect, 5000);
-      };
-      ws.onerror = () => {
-        // close event последует — там и обработаем
-      };
-    };
-
-    connect();
-    return () => {
-      cancelled = true;
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      ws?.close();
-    };
-  }, []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -191,7 +78,7 @@ export function Logs() {
             variant="outlined"
             color="error"
             startIcon={<DeleteOutline />}
-            onClick={() => setLines([])}
+            onClick={clear}
           >
             Очистить
           </Button>

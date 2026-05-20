@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -39,6 +40,8 @@ import {
   type BacktestJobOut,
   type BacktestRunIn,
 } from "../../api/backtest";
+import { listSupportedExchanges, listExchangeSymbols } from "../../api/exchanges";
+import type { ExchangeMeta } from "../../api/types";
 import { glassPopupSx } from "../styles/glassDropdown";
 
 const STRATEGIES = [
@@ -134,7 +137,12 @@ function toIsoEndOfDay(d: string): string {
 
 export function Backtesting() {
   const [strategy, setStrategy] = useState<StrategyName>("SmaCross");
-  const [symbol, setSymbol] = useState("BTC/USDT");
+  const [exchanges, setExchanges] = useState<ExchangeMeta[]>([]);
+  const [exchange, setExchange] = useState("binance");
+  const [symbol, setSymbol] = useState("");
+  const [topSymbols, setTopSymbols] = useState<string[]>([]);
+  const [symbolsLoading, setSymbolsLoading] = useState(false);
+  const [symbolsError, setSymbolsError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState("1h");
   const [dateFrom, setDateFrom] = useState("2024-01-01");
   const [dateTo, setDateTo] = useState("2024-06-30");
@@ -150,6 +158,39 @@ export function Backtesting() {
     setStrategy(name);
     setParams(defaultParams(name));
   };
+
+  // Список поддерживаемых бирж (для селекта).
+  useEffect(() => {
+    listSupportedExchanges()
+      .then((list) => {
+        setExchanges(list);
+        if (list.length > 0) {
+          setExchange((cur) =>
+            list.some((e) => e.name === cur) ? cur : list[0].name,
+          );
+        }
+      })
+      .catch(() => setExchanges([]));
+  }, []);
+
+  // Разрешённые пары выбранной биржи (BTC/SOL/XRP/BNB/ETH к USDT). Кэш на бэке.
+  useEffect(() => {
+    if (!exchange) return;
+    setSymbolsLoading(true);
+    setSymbolsError(null);
+    listExchangeSymbols(exchange)
+      .then((list) => {
+        setTopSymbols(list);
+        setSymbol((cur) => (cur && list.includes(cur) ? cur : (list[0] ?? "")));
+      })
+      .catch((err) => {
+        setTopSymbols([]);
+        setSymbolsError(
+          err instanceof ApiHttpError ? err.message : "Не удалось загрузить пары",
+        );
+      })
+      .finally(() => setSymbolsLoading(false));
+  }, [exchange]);
 
   // Polling result while running
   useEffect(() => {
@@ -188,6 +229,7 @@ export function Backtesting() {
     try {
       const body: BacktestRunIn = {
         strategy_class: strategy,
+        exchange,
         symbol: symbol.trim().toUpperCase(),
         timeframe,
         params: coerceParams(params),
@@ -254,13 +296,41 @@ export function Backtesting() {
                     </Select>
                   </FormControl>
 
-                  <TextField
-                    label="Пара"
-                    size="small"
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value)}
-                    helperText="например, BTC/USDT"
-                    fullWidth
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Биржа</InputLabel>
+                    <Select
+                      value={exchange}
+                      label="Биржа"
+                      onChange={(e) => setExchange(String(e.target.value))}
+                      MenuProps={{ slotProps: { paper: { sx: glassPopupSx } } }}
+                    >
+                      {exchanges.map((ex) => (
+                        <MenuItem key={ex.name} value={ex.name}>
+                          {ex.display_name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <Autocomplete
+                    value={symbol || null}
+                    onChange={(_e, v) => setSymbol(v ?? "")}
+                    options={topSymbols}
+                    loading={symbolsLoading}
+                    isOptionEqualToValue={(opt, val) => opt === val}
+                    slotProps={{ paper: { sx: glassPopupSx } }}
+                    noOptionsText={symbolsError ?? "Нет доступных пар"}
+                    loadingText="Загружаем пары..."
+                    renderInput={(p) => (
+                      <TextField
+                        {...p}
+                        label="Пара"
+                        size="small"
+                        required
+                        error={Boolean(symbolsError)}
+                        helperText={symbolsError ?? "Выберите пару из списка"}
+                      />
+                    )}
                   />
 
                   <FormControl size="small" fullWidth>

@@ -1,4 +1,4 @@
-import { AppBar, Toolbar, IconButton, Stack, Typography, Button } from "@mui/material";
+import { AppBar, Toolbar, IconButton, Stack, Typography, Tooltip } from "@mui/material";
 import { Menu as MenuIcon, Logout, CurrencyBitcoin } from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
 
@@ -65,15 +65,11 @@ export function Header({ drawerWidth, isResizing, handleDrawerToggle }: HeaderPr
             >
               {user.email}
             </Typography>
-            <Button
-              size="small"
-              color="inherit"
-              onClick={logout}
-              startIcon={<Logout fontSize="small" />}
-              sx={{ textTransform: "none" }}
-            >
-              Выйти
-            </Button>
+            <Tooltip title="Выйти">
+              <IconButton color="inherit" onClick={logout} aria-label="Выйти">
+                <Logout fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Stack>
         )}
       </Toolbar>

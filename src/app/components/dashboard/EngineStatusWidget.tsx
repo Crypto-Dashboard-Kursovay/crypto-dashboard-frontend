@@ -15,38 +15,6 @@ import { listBots } from "../../../api/bots";
 import { fetchHealth, type HealthStatus } from "../../../api/health";
 import type { BotOut } from "../../../api/types";
 
-interface HealthRowProps {
-  label: string;
-  state: "ok" | "fail" | "unknown";
-}
-
-function HealthRow({ label, state }: HealthRowProps) {
-  const color =
-    state === "ok"
-      ? "success.main"
-      : state === "fail"
-        ? "error.main"
-        : "text.disabled";
-  const text = state === "ok" ? "OK" : state === "fail" ? "FAIL" : "—";
-  return (
-    <Stack direction="row" alignItems="center" spacing={1}>
-      <Box
-        sx={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          bgcolor: color,
-          flexShrink: 0,
-        }}
-      />
-      <Typography variant="body2">{label}</Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
-        {text}
-      </Typography>
-    </Stack>
-  );
-}
-
 interface CounterBoxProps {
   label: string;
   value: number | string;
@@ -163,13 +131,6 @@ export function EngineStatusWidget() {
               </Typography>
             </Stack>
           </Box>
-        </Stack>
-
-        {/* Health checks */}
-        <Stack spacing={0.75} mb={2.5}>
-          <HealthRow label="Backend" state={backendState} />
-          <HealthRow label="PostgreSQL" state={pgState} />
-          <HealthRow label="Redis" state={redisState} />
         </Stack>
 
         {/* Counters */}
