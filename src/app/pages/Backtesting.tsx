@@ -155,6 +155,17 @@ export function Backtesting() {
   const [error, setError] = useState<string | null>(null);
   const [tradesVisible, setTradesVisible] = useState(100);
 
+  // Автозагрузка сделок: каждые 200мс +100 пока не покажем все
+  useEffect(() => {
+    if (!job?.result) return;
+    const total = job.result.trades.length;
+    if (tradesVisible >= total) return;
+    const timer = setTimeout(() => {
+      setTradesVisible(prev => Math.min(prev + 100, total));
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [tradesVisible, job?.result]);
+
   const onStrategyChange = (name: StrategyName) => {
     setStrategy(name);
     setParams(defaultParams(name));
@@ -611,13 +622,9 @@ export function Backtesting() {
                         Сделки ({result.trades.length})
                       </Typography>
                       {tradesVisible < result.trades.length && (
-                        <Button
-                          size="small"
-                          variant="text"
-                          onClick={() => setTradesVisible(prev => Math.min(prev + 100, result.trades.length))}
-                        >
-                          Загрузить ещё (показано {tradesVisible} из {result.trades.length})
-                        </Button>
+                        <Typography variant="caption" color="text.secondary">
+                          Загрузка... {tradesVisible}/{result.trades.length}
+                        </Typography>
                       )}
                     </Stack>
                     <Box sx={{ maxHeight: 280, overflowY: "auto" }}>
