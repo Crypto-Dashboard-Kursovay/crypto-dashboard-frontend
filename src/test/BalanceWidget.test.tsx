@@ -20,6 +20,7 @@ function makeSummary(overrides: Partial<BalanceSummaryOut> = {}): BalanceSummary
     ],
     open_pnl: "42.15",
     position_count: 2,
+    last_observed_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
 }

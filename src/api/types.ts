@@ -94,6 +94,7 @@ export interface BalanceSummaryOut {
   currencies: BalanceOut[];
   open_pnl: string;
   position_count: number;
+  last_observed_at: string | null;
 }
 
 export interface CandleOut {

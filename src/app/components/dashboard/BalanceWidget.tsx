@@ -5,6 +5,14 @@ import { fetchBalanceSummary } from "../../../api/balances";
 import type { BalanceSummaryOut } from "../../../api/types";
 import { ApiHttpError } from "../../../api/client";
 
+function ago(iso: string | null): string {
+  if (!iso) return "";
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 60) return `${Math.round(diff)}с назад`;
+  if (diff < 3600) return `${Math.round(diff / 60)}м назад`;
+  return `${Math.round(diff / 3600)}ч назад`;
+}
+
 export function BalanceWidget() {
   const [data, setData] = useState<BalanceSummaryOut | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +43,8 @@ export function BalanceWidget() {
   const equity = data ? parseFloat(data.total_equity) : null;
   const pnl = data ? parseFloat(data.open_pnl) : null;
   const posCount = data?.position_count ?? null;
+  const hasBalances = data && data.currencies && data.currencies.length > 0;
+  const lastSeen = data?.last_observed_at ?? null;
 
   return (
     <Card sx={{ height: "100%" }}>
@@ -53,7 +63,7 @@ export function BalanceWidget() {
               <Typography
                 variant="h4"
                 fontWeight="bold"
-                color={error ? "text.disabled" : "text.primary"}
+                color={error ? "text.disabled" : equity === 0 && !hasBalances ? "warning.main" : "text.primary"}
               >
                 {equity !== null ? equity.toFixed(2) : "—"}
               </Typography>
@@ -65,12 +75,20 @@ export function BalanceWidget() {
               <Typography variant="body2" color="error.main">
                 {error}
               </Typography>
-            ) : (
+            ) : !hasBalances ? (
+              <Typography variant="body2" color="warning.main">
+                Нет данных от движка — engine не отправляет balance_update
+              </Typography>
+            ) : lastSeen ? (
               <Typography variant="body2" color="text.disabled">
                 Свободно: {data?.free_total}{" "}
                 &middot; В ордерах: {data?.used_total}
+                <br />
+                <Typography variant="caption" color="text.disabled">
+                  Данные: {ago(lastSeen)}
+                </Typography>
               </Typography>
-            )}
+            ) : null}
 
             <Stack spacing={1.5} pt={2} mt={2} borderTop={1} borderColor="divider">
               <Stack direction="row" justifyContent="space-between">
