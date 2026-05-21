@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, Typography, Stack, Box, CircularProgress } from "@mui/material";
+import {
+  Card,
+  CardContent,
+  Typography,
+  Stack,
+  Box,
+  CircularProgress,
+} from "@mui/material";
 
 import { fetchBalanceSummary } from "../../../api/balances";
 import type { BalanceSummaryOut } from "../../../api/types";
@@ -28,7 +35,9 @@ export function BalanceWidget() {
         })
         .catch((err) => {
           if (cancelled) return;
-          setError(err instanceof ApiHttpError ? err.message : "Ошибка загрузки");
+          setError(
+            err instanceof ApiHttpError ? err.message : "Ошибка загрузки",
+          );
           setData(null);
         });
     };
@@ -63,7 +72,13 @@ export function BalanceWidget() {
               <Typography
                 variant="h4"
                 fontWeight="bold"
-                color={error ? "text.disabled" : equity === 0 && !hasBalances ? "warning.main" : "text.primary"}
+                color={
+                  error
+                    ? "text.disabled"
+                    : equity === 0 && !hasBalances
+                      ? "warning.main"
+                      : "text.primary"
+                }
               >
                 {equity !== null ? equity.toFixed(2) : "—"}
               </Typography>
@@ -81,8 +96,8 @@ export function BalanceWidget() {
               </Typography>
             ) : lastSeen ? (
               <Typography variant="body2" color="text.disabled">
-                Свободно: {data?.free_total}{" "}
-                &middot; В ордерах: {data?.used_total}
+                Свободно: {data?.free_total} &middot; В ордерах:{" "}
+                {data?.used_total}
                 <br />
                 <Typography variant="caption" color="text.disabled">
                   Данные: {ago(lastSeen)}
@@ -90,7 +105,13 @@ export function BalanceWidget() {
               </Typography>
             ) : null}
 
-            <Stack spacing={1.5} pt={2} mt={2} borderTop={1} borderColor="divider">
+            <Stack
+              spacing={1.5}
+              pt={2}
+              mt={2}
+              borderTop={1}
+              borderColor="divider"
+            >
               <Stack direction="row" justifyContent="space-between">
                 <Typography variant="body2" color="text.secondary">
                   Открытая прибыль/убыток
@@ -106,7 +127,7 @@ export function BalanceWidget() {
                   }
                 >
                   {pnl !== null
-                    ? `${pnl >= 0 ? "+" : ""}${pnl.toFixed(4)} USDT`
+                    ? `${pnl >= 0 ? "+" : ""}${pnl.toFixed(2)} USDT`
                     : "—"}
                 </Typography>
               </Stack>

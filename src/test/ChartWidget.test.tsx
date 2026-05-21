@@ -43,7 +43,7 @@ describe("ChartWidget", () => {
     mockFetchCandles.mockResolvedValue(makeCandles(10));
     render(<ChartWidget />);
     await waitFor(() => {
-      expect(screen.getByText("$90095.00")).toBeInTheDocument();
+      expect(screen.getByText("$90095")).toBeInTheDocument();
     });
   });
 

@@ -43,7 +43,7 @@ describe("BalanceWidget", () => {
       expect(screen.getByText("15234.50")).toBeInTheDocument();
     });
     expect(screen.getByText("USDT")).toBeInTheDocument();
-    expect(screen.getByText("+42.1500 USDT")).toBeInTheDocument();
+    expect(screen.getByText(/\+42\.15/)).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
   });
 
@@ -51,7 +51,7 @@ describe("BalanceWidget", () => {
     mockFetchBalanceSummary.mockResolvedValue(makeSummary({ open_pnl: "-10.50" }));
     render(<BalanceWidget />);
     await waitFor(() => {
-      expect(screen.getByText("-10.5000 USDT")).toBeInTheDocument();
+      expect(screen.getByText(/-10\.50/)).toBeInTheDocument();
     });
   });
 

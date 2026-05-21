@@ -135,12 +135,6 @@ export function LogsProvider({ children }: { children: ReactNode }) {
       ws.onopen = () => {
         if (cancelled) return;
         setWsState("open");
-        append({
-          time: new Date().toISOString(),
-          level: "INFO",
-          source: "ws",
-          message: "WebSocket подключён",
-        });
       };
       ws.onmessage = (e) => {
         try {

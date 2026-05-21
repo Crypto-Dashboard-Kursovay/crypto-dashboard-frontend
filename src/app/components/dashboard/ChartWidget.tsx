@@ -138,7 +138,7 @@ export function ChartWidget() {
           </Stack>
           {lastPrice !== null && (
             <Typography variant="h6" fontWeight="bold">
-              ${lastPrice.toFixed(2)}
+              ${Math.trunc(lastPrice)}
             </Typography>
           )}
         </Stack>
