@@ -17,7 +17,7 @@ export interface LogLine {
   id: number;
   time: string; // ISO timestamp
   level: LogLevel;
-  source: string; // strategy_error | new_trade | balance_update | ws
+  source: string; // strategy_error | new_trade | balance_update | engine | ws
   message: string;
 }
 
@@ -168,6 +168,18 @@ export function LogsProvider({ children }: { children: ReactNode }) {
               level: "INFO",
               source: "balance_update",
               message: "Обновление баланса",
+            });
+          } else if (msg.type === "engine_log") {
+            const d = (msg.data ?? {}) as Record<string, unknown>;
+            const kind = String(d.kind ?? "log");
+            const level: LogLevel =
+              kind === "startup_failed" || kind === "balance_poll_failed" ? "ERROR" :
+              kind === "strategy_started" ? "INFO" : "INFO";
+            append({
+              time: String(d.timestamp ?? new Date().toISOString()),
+              level,
+              source: "engine",
+              message: String(d.message ?? ""),
             });
           }
         } catch {
