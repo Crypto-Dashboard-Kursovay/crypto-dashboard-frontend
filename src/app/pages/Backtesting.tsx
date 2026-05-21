@@ -153,6 +153,7 @@ export function Backtesting() {
   const [job, setJob] = useState<BacktestJobOut | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tradesVisible, setTradesVisible] = useState(100);
 
   const onStrategyChange = (name: StrategyName) => {
     setStrategy(name);
@@ -226,6 +227,7 @@ export function Backtesting() {
     e.preventDefault();
     setError(null);
     setBusy(true);
+    setTradesVisible(100);
     try {
       const body: BacktestRunIn = {
         strategy_class: strategy,
@@ -604,9 +606,20 @@ export function Backtesting() {
                 {/* Trades table */}
                 <Card>
                   <CardContent>
-                    <Typography variant="subtitle2" color="text.secondary" mb={1}>
-                      Сделки ({result.trades.length})
-                    </Typography>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+                      <Typography variant="subtitle2" color="text.secondary">
+                        Сделки ({result.trades.length})
+                      </Typography>
+                      {tradesVisible < result.trades.length && (
+                        <Button
+                          size="small"
+                          variant="text"
+                          onClick={() => setTradesVisible(prev => Math.min(prev + 100, result.trades.length))}
+                        >
+                          Загрузить ещё (показано {tradesVisible} из {result.trades.length})
+                        </Button>
+                      )}
+                    </Stack>
                     <Box sx={{ maxHeight: 280, overflowY: "auto" }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
@@ -619,7 +632,7 @@ export function Backtesting() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {result.trades.slice(0, 100).map((t, i) => (
+                          {result.trades.slice(0, tradesVisible).map((t, i) => (
                             <TableRow key={i} hover>
                               <TableCell>
                                 {new Date(t.timestamp).toLocaleString("ru-RU")}
