@@ -1,4 +1,6 @@
 import { apiFetch } from "./client";
+import { isMockEnabled } from "../mock/config";
+import { mockStore } from "../mock/store";
 
 export interface BacktestRunIn {
   strategy_class: string;
@@ -69,16 +71,24 @@ export interface BacktestJobSummary {
 }
 
 export const runBacktest = (body: BacktestRunIn): Promise<BacktestJobOut> =>
-  apiFetch<BacktestJobOut>("/api/backtest/run", {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  isMockEnabled()
+    ? Promise.resolve(mockStore.runBacktest(body))
+    : apiFetch<BacktestJobOut>("/api/backtest/run", {
+        method: "POST",
+        body: JSON.stringify(body),
+      });
 
 export const getBacktest = (id: string): Promise<BacktestJobOut> =>
-  apiFetch<BacktestJobOut>(`/api/backtest/${id}`);
+  isMockEnabled()
+    ? Promise.resolve(mockStore.getBacktest(id))
+    : apiFetch<BacktestJobOut>(`/api/backtest/${id}`);
 
 export const listBacktests = (limit = 20): Promise<BacktestJobSummary[]> =>
-  apiFetch<BacktestJobSummary[]>(`/api/backtest?limit=${limit}`);
+  isMockEnabled()
+    ? Promise.resolve(mockStore.listBacktests(limit))
+    : apiFetch<BacktestJobSummary[]>(`/api/backtest?limit=${limit}`);
 
 export const deleteBacktest = (id: string): Promise<void> =>
-  apiFetch<void>(`/api/backtest/${id}`, { method: "DELETE" });
+  isMockEnabled()
+    ? Promise.resolve(mockStore.deleteBacktest(id))
+    : apiFetch<void>(`/api/backtest/${id}`, { method: "DELETE" });

@@ -34,6 +34,8 @@ interface LogsContextValue {
   paused: boolean;
   setPaused: (v: boolean | ((p: boolean) => boolean)) => void;
   clear: () => void;
+  /** Внешняя инъекция строки лога (используется демо-режимом). */
+  pushLog: (line: Omit<LogLine, "id">) => void;
 }
 
 const LogsContext = createContext<LogsContextValue | null>(null);
@@ -200,8 +202,8 @@ export function LogsProvider({ children }: { children: ReactNode }) {
   }, [append]);
 
   const value = useMemo<LogsContextValue>(
-    () => ({ lines, wsState, paused, setPaused, clear }),
-    [lines, wsState, paused, clear],
+    () => ({ lines, wsState, paused, setPaused, clear, pushLog: append }),
+    [lines, wsState, paused, clear, append],
   );
 
   return <LogsContext.Provider value={value}>{children}</LogsContext.Provider>;

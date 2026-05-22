@@ -11,6 +11,11 @@ import {
   Alert,
   CircularProgress,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from "@mui/material";
 import {
   Add,
@@ -20,11 +25,33 @@ import {
   Stop,
   DeleteOutline,
   Refresh,
+  EditOutlined,
 } from "@mui/icons-material";
 
 import { ApiHttpError } from "../../api/client";
-import { deleteBot, listBots, startBot, stopBot } from "../../api/bots";
+import { deleteBot, listBots, startBot, stopBot, updateBotParams } from "../../api/bots";
 import type { BotOut } from "../../api/types";
+
+// Какие параметры имеют целочисленный смысл — приводим к Number при сохранении
+// (зеркало CreateStrategy.coerceParams).
+const INT_PARAM_KEYS = new Set([
+  "fast_period",
+  "slow_period",
+  "signal_period",
+  "rsi_period",
+  "bb_period",
+  "period",
+  "interval_candles",
+  "num_levels",
+]);
+
+function coerceEditParams(raw: Record<string, string>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    out[k] = INT_PARAM_KEYS.has(k) ? Number(v) : v;
+  }
+  return out;
+}
 
 const STATUS_LABEL: Record<string, string> = {
   draft: "Черновик",
@@ -51,6 +78,9 @@ export function Strategies() {
   const [bots, setBots] = useState<BotOut[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
+  const [editing, setEditing] = useState<BotOut | null>(null);
+  const [editParams, setEditParams] = useState<Record<string, string>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -90,6 +120,28 @@ export function Strategies() {
   const onDelete = (id: string) => {
     if (!confirm("Удалить бота? Действие необратимо.")) return;
     void withBusy(id, () => deleteBot(id));
+  };
+
+  const onEdit = (bot: BotOut) => {
+    setEditing(bot);
+    const asStrings: Record<string, string> = {};
+    for (const [k, v] of Object.entries(bot.params)) asStrings[k] = String(v);
+    setEditParams(asStrings);
+  };
+
+  const onSaveEdit = async () => {
+    if (!editing) return;
+    setSavingEdit(true);
+    setError(null);
+    try {
+      await updateBotParams(editing.id, coerceEditParams(editParams));
+      setEditing(null);
+    } catch (err) {
+      setError(err instanceof ApiHttpError ? err.message : "Не удалось сохранить изменения");
+    } finally {
+      setSavingEdit(false);
+      await refresh();
+    }
   };
 
   return (
@@ -263,6 +315,14 @@ export function Strategies() {
                       Stop
                     </Button>
                     <IconButton
+                      color="inherit"
+                      onClick={() => onEdit(bot)}
+                      disabled={isBusy}
+                      aria-label="Редактировать бота"
+                    >
+                      <EditOutlined />
+                    </IconButton>
+                    <IconButton
                       color="error"
                       onClick={() => onDelete(bot.id)}
                       disabled={isBusy || bot.status === "running"}
@@ -277,6 +337,54 @@ export function Strategies() {
           })}
         </Grid>
       )}
+
+      <Dialog open={editing !== null} onClose={() => setEditing(null)} fullWidth maxWidth="sm">
+        <DialogTitle>
+          Редактировать стратегию
+          {editing && (
+            <Typography variant="body2" color="text.secondary">
+              {editing.strategy_class} · {editing.symbol} · {editing.timeframe}
+            </Typography>
+          )}
+        </DialogTitle>
+        <DialogContent>
+          {editing && Object.keys(editParams).length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              У этой стратегии нет редактируемых параметров.
+            </Typography>
+          ) : (
+            <Grid container spacing={2} sx={{ mt: 0.5 }}>
+              {Object.entries(editParams).map(([key, value]) => (
+                <Grid size={{ xs: 12, sm: 6 }} key={key}>
+                  <TextField
+                    label={key}
+                    size="small"
+                    fullWidth
+                    value={value}
+                    disabled={savingEdit}
+                    onChange={(e) =>
+                      setEditParams((p) => ({ ...p, [key]: e.target.value }))
+                    }
+                  />
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button color="inherit" onClick={() => setEditing(null)} disabled={savingEdit}>
+            Отмена
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => void onSaveEdit()}
+            disabled={savingEdit}
+          >
+            {savingEdit ? "Сохраняем..." : "Сохранить"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

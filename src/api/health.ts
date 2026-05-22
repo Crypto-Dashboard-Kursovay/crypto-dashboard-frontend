@@ -1,4 +1,6 @@
 import { API_ORIGIN } from "./client";
+import { isMockEnabled } from "../mock/config";
+import { mockStore } from "../mock/store";
 
 export interface HealthStatus {
   backend: string;
@@ -9,6 +11,7 @@ export interface HealthStatus {
 // /healthz возвращает 503 при сбойных проверках, но с валидным JSON body.
 // apiFetch выбрасывает ApiHttpError на не-2xx — поэтому читаем напрямую.
 export async function fetchHealth(): Promise<HealthStatus> {
+  if (isMockEnabled()) return mockStore.getHealth();
   const res = await fetch(`${API_ORIGIN}/healthz`);
   const body = (await res.json()) as Partial<HealthStatus>;
   return {

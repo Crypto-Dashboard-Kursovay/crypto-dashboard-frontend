@@ -1,5 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 
+// Демо-режим («мок-данные») включён по умолчанию в проде, но в тестах api/виджетов
+// мы хотим реальный путь через fetch (он мокается в самих тестах). Поэтому явно
+// выключаем его здесь. Тест мок-стора при необходимости включает его сам.
+try {
+  localStorage.setItem("crypto.mock.enabled", "false");
+} catch {
+  // localStorage может быть недоступен в некоторых окружениях — не критично
+}
+
 class ResizeObserverMock {
   private callback: ResizeObserverCallback;
   constructor(callback: ResizeObserverCallback) {

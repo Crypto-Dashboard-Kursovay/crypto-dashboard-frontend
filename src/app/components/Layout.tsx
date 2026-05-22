@@ -7,6 +7,7 @@ import { Sidebar } from "./layout/Sidebar";
 import { Header } from "./layout/Header";
 import { ResizeHandle } from "./layout/ResizeHandle";
 import { LogsProvider } from "../LogsContext";
+import { MockDataProvider } from "../MockDataContext";
 
 const mobileDrawerWidth = 260;
 const minDrawerWidth = 80;
@@ -55,6 +56,7 @@ export function Layout() {
 
   return (
     <LogsProvider>
+    <MockDataProvider>
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
       <Header
         drawerWidth={drawerWidth}
@@ -141,6 +143,7 @@ export function Layout() {
         <Outlet />
       </Box>
     </Box>
+    </MockDataProvider>
     </LogsProvider>
   );
 }

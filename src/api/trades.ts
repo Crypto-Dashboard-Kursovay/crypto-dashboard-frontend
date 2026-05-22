@@ -1,4 +1,6 @@
 import { apiFetch } from "./client";
+import { isMockEnabled } from "../mock/config";
+import { mockStore } from "../mock/store";
 
 export interface TradeOut {
   id: string;
@@ -22,6 +24,7 @@ export interface ListTradesParams {
 }
 
 export async function listTrades(params: ListTradesParams = {}): Promise<TradeOut[]> {
+  if (isMockEnabled()) return mockStore.getTrades(params);
   const qs = new URLSearchParams();
   if (params.bot_id) qs.set("bot_id", params.bot_id);
   if (params.limit !== undefined) qs.set("limit", String(params.limit));
