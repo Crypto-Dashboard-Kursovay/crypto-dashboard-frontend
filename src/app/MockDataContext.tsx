@@ -32,6 +32,9 @@ export function MockDataProvider({ children }: { children: ReactNode }) {
   const setEnabled = (value: boolean) => {
     setMockEnabled(value);
     setEnabledState(value);
+    // Полная перезагрузка: гарантирует чистое переключение источника данных и
+    // свежую генерацию мок-сессии (или возврат на реальные эндпоинты).
+    window.location.reload();
   };
 
   // Таймер демо-данных: активен только пока режим включён.

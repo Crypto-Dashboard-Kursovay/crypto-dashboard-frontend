@@ -76,7 +76,7 @@ export function Header({ drawerWidth, isResizing, handleDrawerToggle }: HeaderPr
                     size="small"
                     checked={mockEnabled}
                     onChange={(e) => setMockEnabled(e.target.checked)}
-                    color="warning"
+                    color="success"
                   />
                 }
                 label={
