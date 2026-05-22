@@ -32,6 +32,7 @@ import { glassPopupSx } from "../styles/glassDropdown";
 const STRATEGIES = [
   "SmaCross",
   "RsiThreshold",
+  "AdaptiveRsi",
   "MacdCross",
   "BollingerBands",
   "BollingerRsi",
@@ -43,6 +44,7 @@ type StrategyName = (typeof STRATEGIES)[number];
 const STRATEGY_LABELS: Record<StrategyName, string> = {
   SmaCross: "SMA Cross",
   RsiThreshold: "RSI порог",
+  AdaptiveRsi: "Адаптивный RSI",
   MacdCross: "MACD Cross",
   BollingerBands: "Bollinger Bands",
   BollingerRsi: "BB + RSI",
@@ -62,6 +64,11 @@ function defaultParams(strategy: StrategyName): Record<string, string> {
         rsi_period: "14",
         oversold: "30",
         overbought: "70",
+        order_size: "0.001",
+      };
+    case "AdaptiveRsi":
+      return {
+        optimization_candles: "500",
         order_size: "0.001",
       };
     case "MacdCross":
@@ -107,6 +114,7 @@ function paramHint(strategy: StrategyName, key: string): string {
     oversold: "Нижний порог RSI для входа (BUY)",
     overbought: "Верхний порог RSI для выхода (SELL)",
     order_size: "Размер ордера в базовой валюте",
+    optimization_candles: "Сколько свечей для калибровки (≥50). Больше = точнее, но дольше",
     buy_amount_quote: "Сумма покупки в quote-валюте за один интервал",
     interval_candles: "Каждые сколько свечей покупать (24 на 1h ≈ раз в сутки)",
     price_low: "Нижняя граница сетки (цена)",

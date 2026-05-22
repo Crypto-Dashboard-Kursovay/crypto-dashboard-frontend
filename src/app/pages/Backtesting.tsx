@@ -48,6 +48,7 @@ import { BacktestRunningIndicator } from "../components/BacktestRunningIndicator
 const STRATEGIES = [
   "SmaCross",
   "RsiThreshold",
+  "AdaptiveRsi",
   "MacdCross",
   "BollingerBands",
   "BollingerRsi",
@@ -59,6 +60,7 @@ type StrategyName = (typeof STRATEGIES)[number];
 const STRATEGY_LABELS: Record<StrategyName, string> = {
   SmaCross: "SMA Cross",
   RsiThreshold: "RSI порог",
+  AdaptiveRsi: "Адаптивный RSI",
   MacdCross: "MACD Cross",
   BollingerBands: "Bollinger Bands",
   BollingerRsi: "BB + RSI",
@@ -77,6 +79,11 @@ function defaultParams(s: StrategyName): Record<string, string> {
         rsi_period: "14",
         oversold: "30",
         overbought: "70",
+        order_size: "0.001",
+      };
+    case "AdaptiveRsi":
+      return {
+        optimization_candles: "500",
         order_size: "0.001",
       };
     case "MacdCross":
@@ -119,6 +126,7 @@ function coerceParams(raw: Record<string, string>): Record<string, unknown> {
     "period",
     "interval_candles",
     "num_levels",
+    "optimization_candles",
   ]);
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(raw)) {
