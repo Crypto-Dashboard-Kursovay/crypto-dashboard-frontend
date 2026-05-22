@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 import { mockStore } from "../mock/store";
 import { MOCK_EXCHANGES, MOCK_SYMBOL_NAMES } from "../mock/config";
@@ -86,20 +86,66 @@ describe("mockStore — мутации без сети", () => {
     expect(updated.params.custom_param).toBe("42");
   });
 
-  it("runBacktest возвращает завершённый результат с метриками", () => {
-    const job = mockStore.runBacktest({
-      strategy_class: "SmaCross",
-      exchange: "binance",
-      symbol: MOCK_SYMBOL_NAMES[0],
-      timeframe: "1h",
-      params: {},
-      date_from: "2026-01-01T00:00:00Z",
-      date_to: "2026-02-01T00:00:00Z",
-      initial_balance: { USDT: "1000" },
-    });
-    expect(job.status).toBe("completed");
-    expect(job.result).not.toBeNull();
-    expect(job.result!.equity_curve.length).toBeGreaterThan(0);
-    expect(mockStore.getBacktest(job.id).id).toBe(job.id);
+  it("runBacktest стартует как running и завершается по истечении расчётного времени", () => {
+    vi.useFakeTimers();
+    try {
+      const job = mockStore.runBacktest({
+        strategy_class: "SmaCross",
+        exchange: "binance",
+        symbol: MOCK_SYMBOL_NAMES[0],
+        timeframe: "1h",
+        params: {},
+        date_from: "2026-01-01T00:00:00Z",
+        date_to: "2026-02-01T00:00:00Z",
+        initial_balance: { USDT: "1000" },
+      });
+      expect(job.status).toBe("running");
+      expect(job.result).toBeNull();
+
+      // До завершения — всё ещё running.
+      vi.advanceTimersByTime(500);
+      expect(mockStore.getBacktest(job.id).status).toBe("running");
+
+      // После расчётного времени — completed с метриками.
+      vi.advanceTimersByTime(15000);
+      const done = mockStore.getBacktest(job.id);
+      expect(done.status).toBe("completed");
+      expect(done.result).not.toBeNull();
+      expect(done.result!.equity_curve.length).toBeGreaterThan(0);
+      expect(done.result!.trades.length).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("длительность прогона растёт при более мелком таймфрейме / длинном периоде", () => {
+    vi.useFakeTimers();
+    try {
+      const base = {
+        strategy_class: "SmaCross",
+        exchange: "binance",
+        symbol: MOCK_SYMBOL_NAMES[0],
+        params: {},
+        initial_balance: { USDT: "1000" },
+      };
+      const slow = mockStore.runBacktest({
+        ...base,
+        timeframe: "1m",
+        date_from: "2026-01-01T00:00:00Z",
+        date_to: "2026-03-01T00:00:00Z",
+      });
+      const fast = mockStore.runBacktest({
+        ...base,
+        timeframe: "1d",
+        date_from: "2026-01-01T00:00:00Z",
+        date_to: "2026-01-10T00:00:00Z",
+      });
+      // Через 2с мелкий ТФ за длинный период ещё бежит, а крупный за неделю готов.
+      vi.advanceTimersByTime(2000);
+      expect(mockStore.getBacktest(slow.id).status).toBe("running");
+      expect(mockStore.getBacktest(fast.id).status).toBe("completed");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

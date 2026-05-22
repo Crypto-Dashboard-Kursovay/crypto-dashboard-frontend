@@ -40,6 +40,7 @@ import {
   priceDigits,
   randFloat,
   randInt,
+  timeframeMs,
   uuid,
 } from "./generators";
 
@@ -64,6 +65,32 @@ interface MockPosition {
 const RUNNING_RATIO = 0.78; // доля изначально активных стратегий
 const MAX_TRADES = 500;
 
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+// Кэш сессии демо-режима: сгенерированные данные сохраняются и переживают перезагрузку
+// страницы ~2 суток (по просьбе — «кэшируясь на ближайшие сутки-двое»).
+const SESSION_KEY = "crypto.mock.session.v1";
+const SESSION_TTL_MS = 48 * 60 * 60 * 1000;
+
+interface BacktestEntry {
+  job: BacktestJobOut;
+  result: BacktestResult;
+  completeAt: number; // ms-таймстамп, когда «прогон» считается завершённым
+}
+
+interface PersistedSession {
+  savedAt: number;
+  credentials: CredentialOut[];
+  bots: BotOut[];
+  positions: MockPosition[];
+  markPrices: Record<string, number>;
+  trades: TradeOut[];
+  freeCash: number;
+  backtests: BacktestEntry[];
+}
+
 class MockStore {
   private initialized = false;
 
@@ -72,7 +99,7 @@ class MockStore {
   private positions: MockPosition[] = [];
   private markPrices: Record<string, number> = {};
   private trades: TradeOut[] = [];
-  private backtests = new Map<string, BacktestJobOut>();
+  private backtests = new Map<string, BacktestEntry>();
   private freeCash = 10000;
 
   // ── Сессия ────────────────────────────────────────────────────────────────
@@ -80,6 +107,9 @@ class MockStore {
   private ensureSession(): void {
     if (this.initialized) return;
     this.initialized = true;
+
+    // Сначала пробуем восстановить кэшированную сессию (живёт ~2 суток).
+    if (this.tryRestore()) return;
 
     // Цены-маркеры с лёгким разбросом от базовых.
     for (const symbol of MOCK_SYMBOL_NAMES) {
@@ -130,6 +160,49 @@ class MockStore {
       this.trades.push(this.makeTrade(bot, at));
     }
     this.trades.sort((a, b) => a.created_at.localeCompare(b.created_at));
+    this.persist();
+  }
+
+  private tryRestore(): boolean {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return false;
+      const s = JSON.parse(raw) as PersistedSession;
+      if (!s || typeof s.savedAt !== "number") return false;
+      if (Date.now() - s.savedAt > SESSION_TTL_MS) {
+        localStorage.removeItem(SESSION_KEY);
+        return false;
+      }
+      this.credentials = s.credentials ?? [];
+      this.bots = s.bots ?? [];
+      this.positions = s.positions ?? [];
+      this.markPrices = s.markPrices ?? {};
+      this.trades = s.trades ?? [];
+      this.freeCash = s.freeCash ?? 10000;
+      this.backtests = new Map((s.backtests ?? []).map((e) => [e.job.id, e]));
+      // Минимальная валидность: восстановили хотя бы ключи и ботов.
+      return this.credentials.length > 0 && this.bots.length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  private persist(): void {
+    try {
+      const payload: PersistedSession = {
+        savedAt: Date.now(),
+        credentials: this.credentials,
+        bots: this.bots,
+        positions: this.positions,
+        markPrices: this.markPrices,
+        trades: this.trades,
+        freeCash: this.freeCash,
+        backtests: [...this.backtests.values()],
+      };
+      localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    } catch {
+      // localStorage переполнен/недоступен — не критично
+    }
   }
 
   private openPosition(bot: BotOut): void {
@@ -231,6 +304,7 @@ class MockStore {
       });
     }
 
+    this.persist();
     return logs;
   }
 
@@ -250,6 +324,7 @@ class MockStore {
       created_at: new Date().toISOString(),
     };
     this.credentials.push(cred);
+    this.persist();
     return { ...cred };
   }
 
@@ -258,6 +333,7 @@ class MockStore {
     this.credentials = this.credentials.filter((c) => c.id !== id);
     this.bots = this.bots.filter((b) => b.credential_id !== id);
     this.positions = this.positions.filter((p) => p.credential_id !== id);
+    this.persist();
   }
 
   getSupportedExchanges(): ExchangeMeta[] {
@@ -393,6 +469,7 @@ class MockStore {
       this.markPrices[bot.symbol] = basePriceOf(bot.symbol);
     }
     this.bots.push(bot);
+    this.persist();
     return { ...bot };
   }
 
@@ -403,6 +480,7 @@ class MockStore {
     bot.status = "running";
     bot.updated_at = new Date().toISOString();
     if (!this.positions.some((p) => p.bot_id === id)) this.openPosition(bot);
+    this.persist();
     return { ...bot };
   }
 
@@ -413,6 +491,7 @@ class MockStore {
     bot.status = "stopped";
     bot.updated_at = new Date().toISOString();
     this.positions = this.positions.filter((p) => p.bot_id !== id);
+    this.persist();
     return { ...bot };
   }
 
@@ -422,6 +501,7 @@ class MockStore {
     if (!bot) throw new Error("bot not found");
     bot.params = { ...bot.params, ...params };
     bot.updated_at = new Date().toISOString();
+    this.persist();
     return { ...bot };
   }
 
@@ -429,17 +509,30 @@ class MockStore {
     this.ensureSession();
     this.bots = this.bots.filter((b) => b.id !== id);
     this.positions = this.positions.filter((p) => p.bot_id !== id);
+    this.persist();
   }
 
   // ── Бэктест (фейковый результат, оффлайн) ────────────────────────────────────
 
+  /** Сколько свечей покрывает период при данном таймфрейме. */
+  private candleCountOf(body: BacktestRunIn): number {
+    const from = new Date(body.date_from).getTime();
+    const to = new Date(body.date_to).getTime();
+    const span = Math.max(to - from, 86_400_000);
+    return Math.max(1, Math.floor(span / timeframeMs(body.timeframe)));
+  }
+
   runBacktest(body: BacktestRunIn): BacktestJobOut {
     this.ensureSession();
     const result = this.makeBacktestResult(body);
-    const now = new Date().toISOString();
+    const now = Date.now();
+    // Скорость «прогона» зависит от числа свечей (мельче ТФ + длиннее период →
+    // дольше). Клампим в разумный диапазон, чтобы анимация была заметна, но не вечной.
+    const duration = clamp(1000 + this.candleCountOf(body) * 3, 1800, 12000);
+    const nowIso = new Date(now).toISOString();
     const job: BacktestJobOut = {
       id: uuid(),
-      status: "completed",
+      status: "running",
       exchange: body.exchange,
       strategy_class: body.strategy_class,
       symbol: body.symbol,
@@ -448,23 +541,32 @@ class MockStore {
       date_from: body.date_from,
       date_to: body.date_to,
       initial_balance: { ...body.initial_balance },
-      result,
+      result: null,
       error_message: null,
-      created_at: now,
-      completed_at: now,
+      created_at: nowIso,
+      completed_at: null,
     };
-    this.backtests.set(job.id, job);
-    return job;
+    this.backtests.set(job.id, { job, result, completeAt: now + duration });
+    this.persist();
+    return { ...job };
   }
 
   getBacktest(id: string): BacktestJobOut {
-    const job = this.backtests.get(id);
-    if (!job) throw new Error("backtest not found");
-    return job;
+    const entry = this.backtests.get(id);
+    if (!entry) throw new Error("backtest not found");
+    // По истечении расчётного времени помечаем прогон завершённым.
+    if (entry.job.status === "running" && Date.now() >= entry.completeAt) {
+      entry.job.status = "completed";
+      entry.job.result = entry.result;
+      entry.job.completed_at = new Date().toISOString();
+      this.persist();
+    }
+    return { ...entry.job };
   }
 
   listBacktests(limit = 20): BacktestJobSummary[] {
     return [...this.backtests.values()]
+      .map((e) => e.job)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .slice(0, limit)
       .map((j) => ({
@@ -483,67 +585,124 @@ class MockStore {
 
   deleteBacktest(id: string): void {
     this.backtests.delete(id);
+    this.persist();
   }
 
+  // Реалистичная симуляция: random-walk цены + простая логика входов/выходов,
+  // метрики считаются из фактических сделок и equity-кривой (не из «потолка»).
   private makeBacktestResult(body: BacktestRunIn): BacktestResult {
     const ccy = Object.keys(body.initial_balance)[0] ?? "USDT";
     const initial = Number(body.initial_balance[ccy] ?? "1000") || 1000;
-    const totalReturnPct = randFloat(-25, 60);
-    const final = initial * (1 + totalReturnPct / 100);
 
     const from = new Date(body.date_from).getTime();
     const to = new Date(body.date_to).getTime();
     const span = Math.max(to - from, 86_400_000);
+    const candleMs = timeframeMs(body.timeframe);
+    const candleCount = this.candleCountOf(body);
+    // Шагов симуляции ограничиваем (производительность/UI), но больше период —
+    // больше шагов и сделок.
+    const steps = Math.round(clamp(candleCount, 40, 600));
 
-    // Equity-кривая: блуждание от initial к final.
-    const points = 60;
+    const startPrice = basePriceOf(body.symbol);
+    // Волатильность за шаг растёт с таймфреймом (1m спокойнее, 1d размашистее).
+    const vol = 0.004 + Math.min(candleMs / 86_400_000, 1) * 0.02;
+    const drift = randFloat(-0.0006, 0.001); // лёгкий тренд на весь период
+    const riskFrac = 0.25; // доля депозита на сделку
+    const feeRate = 0.001;
+
+    let price = startPrice;
+    let cash = initial;
+    let inPos = false;
+    let entryPrice = 0;
+    let posSize = 0;
+
+    const trades: BacktestTrade[] = [];
     const equity_curve: EquityPoint[] = [];
     let peak = initial;
     let maxDd = 0;
-    for (let i = 0; i <= points; i++) {
-      const t = i / points;
-      const base = initial + (final - initial) * t;
-      const noise = base * randFloat(-0.03, 0.03);
-      const eq = Math.max(base + noise, initial * 0.3);
-      peak = Math.max(peak, eq);
-      maxDd = Math.max(maxDd, (peak - eq) / peak);
-      equity_curve.push({
-        timestamp: new Date(from + span * t).toISOString(),
-        equity: decStr(eq, 2),
+    let grossProfit = 0;
+    let grossLoss = 0;
+    let wins = 0;
+    let closed = 0;
+    const rets: number[] = [];
+    let prevEquity = initial;
+
+    const closeAt = (p: number, ts: string) => {
+      const fee = posSize * p * feeRate;
+      const pnl = (p - entryPrice) * posSize - fee;
+      cash += pnl;
+      closed += 1;
+      if (pnl >= 0) {
+        wins += 1;
+        grossProfit += pnl;
+      } else {
+        grossLoss += -pnl;
+      }
+      trades.push({
+        timestamp: ts,
+        side: "sell",
+        price: decStr(p, priceDigits(p)),
+        size: decStr(posSize, 6),
+        fee: decStr(fee, 4),
+        pnl: decStr(pnl, 2),
       });
+      inPos = false;
+    };
+
+    for (let i = 0; i < steps; i++) {
+      price = Math.max(price * (1 + drift + randFloat(-vol, vol)), startPrice * 0.2);
+      const ts = new Date(from + span * (i / steps)).toISOString();
+
+      if (!inPos && chance(0.14)) {
+        posSize = (cash * riskFrac) / price;
+        entryPrice = price;
+        const fee = posSize * price * feeRate;
+        cash -= fee;
+        inPos = true;
+        trades.push({
+          timestamp: ts,
+          side: "buy",
+          price: decStr(price, priceDigits(price)),
+          size: decStr(posSize, 6),
+          fee: decStr(fee, 4),
+          pnl: null,
+        });
+      } else if (inPos && chance(0.2)) {
+        closeAt(price, ts);
+      }
+
+      const unrealized = inPos ? (price - entryPrice) * posSize : 0;
+      const equity = cash + unrealized;
+      equity_curve.push({ timestamp: ts, equity: decStr(equity, 2) });
+      peak = Math.max(peak, equity);
+      maxDd = Math.max(maxDd, peak > 0 ? (peak - equity) / peak : 0);
+      rets.push(prevEquity > 0 ? (equity - prevEquity) / prevEquity : 0);
+      prevEquity = equity;
     }
 
-    const tradesCount = randInt(8, 40);
-    const price = basePriceOf(body.symbol);
-    const dg = priceDigits(price);
-    let wins = 0;
-    const trades: BacktestTrade[] = [];
-    for (let i = 0; i < tradesCount; i++) {
-      const side: "buy" | "sell" = i % 2 === 0 ? "buy" : "sell";
-      const size = randFloat(0.001, 0.2);
-      const fillPrice = price * randFloat(0.9, 1.1);
-      const pnl = side === "sell" ? randFloat(-50, 80) : null;
-      if (pnl !== null && pnl > 0) wins++;
-      trades.push({
-        timestamp: new Date(from + span * (i / tradesCount)).toISOString(),
-        side,
-        price: decStr(fillPrice, dg),
-        size: decStr(size, 6),
-        fee: decStr(size * fillPrice * 0.001, 4),
-        pnl: pnl === null ? null : decStr(pnl, 2),
-      });
-    }
-    const sells = trades.filter((t) => t.pnl !== null).length || 1;
+    // Закрываем хвостовую позицию по последней цене.
+    if (inPos) closeAt(price, new Date(to).toISOString());
+
+    const finalEquity = cash;
+    const totalReturnPct = (finalEquity / initial - 1) * 100;
+    const meanRet = rets.reduce((a, b) => a + b, 0) / (rets.length || 1);
+    const variance =
+      rets.reduce((a, b) => a + (b - meanRet) ** 2, 0) / (rets.length || 1);
+    const std = Math.sqrt(variance);
+    const sharpe = std > 0 ? clamp((meanRet / std) * Math.sqrt(rets.length), -2, 4) : 0;
+    const winRatePct = closed > 0 ? (wins / closed) * 100 : 0;
+    const profitFactor =
+      grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? null : 0;
 
     return {
       initial_balance: { [ccy]: decStr(initial, 2) },
-      final_balance: { [ccy]: decStr(final, 2) },
+      final_balance: { [ccy]: decStr(finalEquity, 2) },
       total_return_pct: decStr(totalReturnPct, 2),
       max_drawdown_pct: decStr(maxDd * 100, 2),
-      sharpe_ratio: decStr(randFloat(-0.5, 2.5), 2),
-      trades_count: tradesCount,
-      win_rate: decStr(wins / sells, 4),
-      profit_factor: decStr(randFloat(0.6, 2.4), 2),
+      sharpe_ratio: decStr(sharpe, 2),
+      trades_count: trades.length,
+      win_rate: decStr(winRatePct, 1),
+      profit_factor: profitFactor === null ? null : decStr(profitFactor, 2),
       trades,
       equity_curve,
     };

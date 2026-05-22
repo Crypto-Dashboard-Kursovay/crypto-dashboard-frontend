@@ -43,6 +43,7 @@ import {
 import { listSupportedExchanges, listExchangeSymbols } from "../../api/exchanges";
 import type { ExchangeMeta } from "../../api/types";
 import { glassPopupSx } from "../styles/glassDropdown";
+import { BacktestRunningIndicator } from "../components/BacktestRunningIndicator";
 
 const STRATEGIES = [
   "SmaCross",
@@ -484,12 +485,7 @@ export function Backtesting() {
                   justifyContent: "center",
                 }}
               >
-                <Stack alignItems="center" spacing={2}>
-                  <CircularProgress size={40} />
-                  <Typography variant="body1" color="text.secondary">
-                    {job.status === "queued" ? "В очереди..." : "Прогоняем стратегию..."}
-                  </Typography>
-                </Stack>
+                <BacktestRunningIndicator />
               </CardContent>
             </Card>
           ) : job.status === "failed" ? (
