@@ -96,7 +96,7 @@ export function BalanceWidget() {
               </Typography>
             ) : lastSeen ? (
               <Typography variant="body2" color="text.disabled">
-                Свободно: {data?.free_total} &middot; В ордерах:{" "}
+                Свободно: {Number(data?.free_total)} &middot; В ордерах:{" "}
                 {data?.used_total}
                 <br />
                 <Typography variant="caption" color="text.disabled">

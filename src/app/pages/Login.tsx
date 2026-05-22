@@ -3,16 +3,18 @@ import { useLocation, useNavigate } from "react-router";
 import {
   Alert,
   Box,
+  Button,
   Card,
   CardContent,
   Divider,
   IconButton,
+  TextField,
   Stack,
   Tooltip,
   Typography,
 } from "@mui/material";
 
-import { getOAuthStartUrl } from "../../api/auth";
+import { getOAuthStartUrl, requestEmailCode, verifyEmailCode } from "../../api/auth";
 import { useAuth } from "../../auth/AuthContext";
 import { EmailCodeForm } from "../components/auth/EmailCodeForm";
 import { TelegramButton } from "../components/auth/TelegramButton";
@@ -21,6 +23,8 @@ import {
   GoogleIcon,
   YandexIcon,
 } from "../components/auth/SocialIcons";
+
+const IS_DEV_LOGIN = import.meta.env.VITE_DEV_LOGIN === "true";
 
 interface LocationState {
   from?: string;
@@ -50,6 +54,26 @@ export function Login() {
 
   const [oauthError, setOauthError] = useState<string | null>(null);
 
+  // Dev login state
+  const [devEmail, setDevEmail] = useState("");
+  const [devBusy, setDevBusy] = useState(false);
+  const [devMsg, setDevMsg] = useState<string | null>(null);
+
+  const devLogin = async () => {
+    if (!devEmail.trim()) return;
+    setDevBusy(true);
+    setDevMsg(null);
+    try {
+      await requestEmailCode(devEmail.trim(), "dev-mode");
+      await verifyEmailCode(devEmail.trim(), "000000");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Ошибка";
+      setDevMsg(msg);
+    } finally {
+      setDevBusy(false);
+    }
+  };
+
   // Единая точка редиректа после успешного логина любым способом
   // (Telegram, OAuth callback, email-код). Раньше Telegram оставлял
   // юзера на /login потому что TelegramButton сам не звал navigate.
@@ -72,7 +96,6 @@ export function Login() {
         justifyContent: "center",
         p: 2,
         bgcolor: "background.default",
-        // Тонкий radial gradient в стиле grok — почти незаметный, добавляет глубину.
         backgroundImage:
           "radial-gradient(ellipse at top, rgba(59, 130, 246, 0.06), transparent 50%), radial-gradient(ellipse at bottom right, rgba(139, 92, 246, 0.04), transparent 50%)",
         position: "relative",
@@ -91,86 +114,125 @@ export function Login() {
         }}
       >
         <CardContent sx={{ p: 4, pt: 3.5 }}>
-          {/* 4 социальные кнопки */}
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            spacing={1.25}
-            mb={2.5}
-          >
-            <Tooltip title="Войти через Google">
-              <IconButton
-                onClick={() => goOAuth("google")}
-                aria-label="Google"
-                sx={{
-                  ...socialBtnSx,
-                  bgcolor: "rgba(255, 255, 255, 0.96)",
-                  "&:hover": {
-                    ...socialBtnSx["&:hover"],
-                    bgcolor: "rgba(255, 255, 255, 1)",
-                  },
-                }}
+          {IS_DEV_LOGIN ? (
+            /* === Dev login: email + код 000000, без капчи и соц-кнопок === */
+            <>
+              <Typography variant="h6" fontWeight="medium" mb={1}>
+                Dev-вход
+              </Typography>
+              <Typography variant="caption" color="text.secondary" mb={2.5} display="block">
+                Код всегда <Box component="code" sx={{ bgcolor: "action.hover", px: 0.5, borderRadius: 0.5 }}>000000</Box>.
+                Введи любой email и жми войти.
+              </Typography>
+              <Stack spacing={1.5}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="test@example.com"
+                  value={devEmail}
+                  onChange={(e) => setDevEmail(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") devLogin(); }}
+                />
+                {devMsg && (
+                  <Alert severity="error" variant="outlined" onClose={() => setDevMsg(null)}>
+                    {devMsg}
+                  </Alert>
+                )}
+                <Button
+                  fullWidth
+                  variant="contained"
+                  disabled={devBusy || !devEmail.trim()}
+                  onClick={devLogin}
+                >
+                  {devBusy ? "Вход..." : "Войти"}
+                </Button>
+              </Stack>
+            </>
+          ) : (
+            /* === Production login: соц-кнопки + email + капча === */
+            <>
+              {/* 4 социальные кнопки */}
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                spacing={1.25}
+                mb={2.5}
               >
-                <GoogleIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Войти через Яндекс">
-              <IconButton
-                onClick={() => goOAuth("yandex")}
-                aria-label="Яндекс"
-                sx={{
-                  ...socialBtnSx,
-                  bgcolor: "#FC3F1D",
-                  borderColor: "rgba(255,255,255,0.05)",
-                  "&:hover": {
-                    ...socialBtnSx["&:hover"],
-                    bgcolor: "#e0361a",
-                  },
-                }}
-              >
-                <YandexIcon />
-              </IconButton>
-            </Tooltip>
-            <TelegramButton
-              onError={setOauthError}
-              sx={{
-                width: 52,
-                height: 52,
-                borderRadius: 3,
-                border: "1px solid rgba(255, 255, 255, 0.05)",
-                transition: "all 0.15s ease-out",
-                "&:hover": { transform: "translateY(-1px)" },
-              }}
-            />
-            <Tooltip title="Войти через GitHub">
-              <IconButton
-                onClick={() => goOAuth("github")}
-                aria-label="GitHub"
-                sx={socialBtnSx}
-              >
-                <GitHubIcon />
-              </IconButton>
-            </Tooltip>
-          </Stack>
+                <Tooltip title="Войти через Google">
+                  <IconButton
+                    onClick={() => goOAuth("google")}
+                    aria-label="Google"
+                    sx={{
+                      ...socialBtnSx,
+                      bgcolor: "rgba(255, 255, 255, 0.96)",
+                      "&:hover": {
+                        ...socialBtnSx["&:hover"],
+                        bgcolor: "rgba(255, 255, 255, 1)",
+                      },
+                    }}
+                  >
+                    <GoogleIcon />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Войти через Яндекс">
+                  <IconButton
+                    onClick={() => goOAuth("yandex")}
+                    aria-label="Яндекс"
+                    sx={{
+                      ...socialBtnSx,
+                      bgcolor: "#FC3F1D",
+                      borderColor: "rgba(255,255,255,0.05)",
+                      "&:hover": {
+                        ...socialBtnSx["&:hover"],
+                        bgcolor: "#e0361a",
+                      },
+                    }}
+                  >
+                    <YandexIcon />
+                  </IconButton>
+                </Tooltip>
+                <TelegramButton
+                  onError={setOauthError}
+                  sx={{
+                    width: 52,
+                    height: 52,
+                    borderRadius: 3,
+                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                    transition: "all 0.15s ease-out",
+                    "&:hover": { transform: "translateY(-1px)" },
+                  }}
+                />
+                <Tooltip title="Войти через GitHub">
+                  <IconButton
+                    onClick={() => goOAuth("github")}
+                    aria-label="GitHub"
+                    sx={socialBtnSx}
+                  >
+                    <GitHubIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
 
-          {oauthError && (
-            <Alert
-              severity="error"
-              variant="outlined"
-              sx={{ mb: 2, borderColor: "rgba(239, 68, 68, 0.3)" }}
-              onClose={() => setOauthError(null)}
-            >
-              {oauthError}
-            </Alert>
+              {oauthError && (
+                <Alert
+                  severity="error"
+                  variant="outlined"
+                  sx={{ mb: 2, borderColor: "rgba(239, 68, 68, 0.3)" }}
+                  onClose={() => setOauthError(null)}
+                >
+                  {oauthError}
+                </Alert>
+              )}
+
+              <Divider sx={{ mb: 2.5 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ px: 1.5 }}>
+                  или email
+                </Typography>
+              </Divider>
+
+              <EmailCodeForm onSuccess={() => navigate(from, { replace: true })} />
+            </>
           )}
-
-          <Divider sx={{ mb: 2.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ px: 1.5 }}>
-              или email
-            </Typography>
-          </Divider>
-
-          <EmailCodeForm onSuccess={() => navigate(from, { replace: true })} />
         </CardContent>
       </Card>
     </Box>
