@@ -12,7 +12,8 @@ import {
   CircularProgress,
 } from "@mui/material";
 
-import { apiFetch } from "../../../api/client";
+import { listCredentials } from "../../../api/credentials";
+import { listPositions } from "../../../api/positions";
 import type { PositionOut } from "../../../api/types";
 
 export function PositionsWidget() {
@@ -24,15 +25,11 @@ export function PositionsWidget() {
     const load = async () => {
       try {
         // Gather positions across all credentials.
-        const creds = await apiFetch<{ id: string }[]>(
-          "/api/exchange-credentials",
-        );
+        const creds = await listCredentials();
         const all: PositionOut[] = [];
         for (const c of creds) {
           try {
-            const p = await apiFetch<PositionOut[]>(
-              `/api/positions?credential_id=${c.id}`,
-            );
+            const p = await listPositions(c.id);
             all.push(...p);
           } catch {
             // skip credentials that fail
