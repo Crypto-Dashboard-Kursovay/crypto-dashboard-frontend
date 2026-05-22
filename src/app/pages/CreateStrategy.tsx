@@ -38,6 +38,7 @@ const STRATEGIES = [
   "BollingerRsi",
   "DcaStrategy",
   "SpotGridStrategy",
+  "MlRsi",
 ] as const;
 type StrategyName = (typeof STRATEGIES)[number];
 
@@ -50,6 +51,7 @@ const STRATEGY_LABELS: Record<StrategyName, string> = {
   BollingerRsi: "BB + RSI",
   DcaStrategy: "DCA (накопление)",
   SpotGridStrategy: "Спотовый Grid",
+  MlRsi: "ML RSI (бустинг)",
 };
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
@@ -98,6 +100,13 @@ function defaultParams(strategy: StrategyName): Record<string, string> {
         num_levels: "10",
         base_per_level: "0.001",
       };
+    case "MlRsi":
+      return {
+        threshold_buy: "0.55",
+        threshold_sell: "0.45",
+        rsi_period: "14",
+        order_size: "0.001",
+      };
   }
 }
 
@@ -121,6 +130,8 @@ function paramHint(strategy: StrategyName, key: string): string {
     price_high: "Верхняя граница сетки (цена)",
     num_levels: "Количество уровней в сетке (≥2)",
     base_per_level: "Размер ордера на каждом уровне (базовая валюта)",
+    threshold_buy: "Порог вероятности для BUY (0-1, по умолчанию 0.55)",
+    threshold_sell: "Порог вероятности для SELL (0-1, по умолчанию 0.45)",
   };
   return hints[key] ?? "";
 }
