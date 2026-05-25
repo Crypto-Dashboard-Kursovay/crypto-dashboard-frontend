@@ -5,8 +5,6 @@ import {
   Stack,
   Typography,
   Tooltip,
-  Switch,
-  FormControlLabel,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
@@ -18,7 +16,6 @@ import { useTheme } from "@mui/material/styles";
 import { Link as RouterLink } from "react-router";
 
 import { useAuth } from "../../../auth/AuthContext";
-import { useMockData } from "../../MockDataContext";
 
 interface HeaderProps {
   drawerWidth: number;
@@ -29,7 +26,6 @@ interface HeaderProps {
 export function Header({ drawerWidth, isResizing, handleDrawerToggle }: HeaderProps) {
   const theme = useTheme();
   const { user, logout } = useAuth();
-  const { enabled: mockEnabled, setEnabled: setMockEnabled } = useMockData();
 
   return (
     <AppBar
@@ -74,24 +70,6 @@ export function Header({ drawerWidth, isResizing, handleDrawerToggle }: HeaderPr
         </Stack>
         {user && (
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Tooltip title="Демо-режим: фронт показывает фиктивные данные и не обращается к движку/биржам">
-              <FormControlLabel
-                sx={{ mr: 0 }}
-                control={
-                  <Switch
-                    size="small"
-                    checked={mockEnabled}
-                    onChange={(e) => setMockEnabled(e.target.checked)}
-                    color="success"
-                  />
-                }
-                label={
-                  <Typography variant="caption" color="text.secondary" noWrap>
-                    мок-данные
-                  </Typography>
-                }
-              />
-            </Tooltip>
             <Tooltip title="Личный кабинет">
               <IconButton
                 component={RouterLink}

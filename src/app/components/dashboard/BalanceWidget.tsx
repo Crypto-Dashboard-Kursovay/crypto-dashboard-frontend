@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Card,
   CardContent,
@@ -11,6 +11,9 @@ import {
 import { fetchBalanceSummary } from "../../../api/balances";
 import type { BalanceSummaryOut } from "../../../api/types";
 import { ApiHttpError } from "../../../api/client";
+import { useLogsOptional } from "../../LogsContext";
+
+const BALANCE_REFRESH_INTERVAL_MS = 5_000;
 
 function ago(iso: string | null): string {
   if (!iso) return "";
@@ -23,31 +26,50 @@ function ago(iso: string | null): string {
 export function BalanceWidget() {
   const [data, setData] = useState<BalanceSummaryOut | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(false);
+  const logs = useLogsOptional();
+  const lastBalanceUpdateAt = logs?.lastBalanceUpdateAt ?? 0;
+
+  const load = useCallback(() => {
+    fetchBalanceSummary()
+      .then((summary) => {
+        if (!mountedRef.current) return;
+        setData(summary);
+        setError(null);
+      })
+      .catch((err) => {
+        if (!mountedRef.current) return;
+        setError(
+          err instanceof ApiHttpError ? err.message : "Ошибка загрузки",
+        );
+        setData(null);
+      });
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = () => {
-      fetchBalanceSummary()
-        .then((summary) => {
-          if (cancelled) return;
-          setData(summary);
-          setError(null);
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setError(
-            err instanceof ApiHttpError ? err.message : "Ошибка загрузки",
-          );
-          setData(null);
-        });
+    mountedRef.current = true;
+    const refreshIfVisible = () => {
+      if (document.visibilityState === "visible") {
+        load();
+      }
     };
     load();
-    const t = setInterval(load, 15_000);
+    const t = setInterval(load, BALANCE_REFRESH_INTERVAL_MS);
+    window.addEventListener("focus", load);
+    document.addEventListener("visibilitychange", refreshIfVisible);
     return () => {
-      cancelled = true;
+      mountedRef.current = false;
       clearInterval(t);
+      window.removeEventListener("focus", load);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
     };
-  }, []);
+  }, [load]);
+
+  useEffect(() => {
+    if (lastBalanceUpdateAt > 0) {
+      load();
+    }
+  }, [lastBalanceUpdateAt, load]);
 
   const equity = data ? parseFloat(data.total_equity) : null;
   const pnl = data ? parseFloat(data.open_pnl) : null;

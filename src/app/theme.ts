@@ -94,5 +94,39 @@ export const theme = createTheme({
         tooltip: { backgroundColor: 'rgba(20, 20, 22, 0.95)', border: '1px solid rgba(255, 255, 255, 0.08)', fontSize: '0.75rem' },
       },
     },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 20,
+          backgroundColor: 'rgba(20, 20, 22, 0.85)',
+          backgroundImage: 'none',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(24px)',
+          WebkitBackdropFilter: 'blur(24px)',
+          boxShadow: '0 24px 64px rgba(0, 0, 0, 0.5)',
+        },
+      },
+    },
+    MuiBackdrop: {
+      styleOverrides: {
+        root: {
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+        },
+        invisible: { backgroundColor: 'transparent', backdropFilter: 'none', WebkitBackdropFilter: 'none' },
+      },
+    },
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: { padding: '24px 28px 8px', fontWeight: 600, fontSize: '1.25rem' },
+      },
+    },
+    MuiDialogContent: {
+      styleOverrides: { root: { padding: '8px 28px 16px' } },
+    },
+    MuiDialogActions: {
+      styleOverrides: { root: { padding: '16px 28px 24px', gap: 8 } },
+    },
   },
 });

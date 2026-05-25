@@ -36,6 +36,7 @@ import {
 import { ApiHttpError } from "../../api/client";
 import {
   getBacktest,
+  listBacktests,
   runBacktest,
   type BacktestJobOut,
   type BacktestRunIn,
@@ -71,6 +72,41 @@ const STRATEGY_LABELS: Record<StrategyName, string> = {
 };
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
+const ACTIVE_BACKTEST_KEY = "crypto.backtest.activeJobId.v1";
+
+function isTerminal(status: BacktestJobOut["status"]): boolean {
+  return status === "completed" || status === "failed";
+}
+
+function isActive(status: BacktestJobOut["status"]): boolean {
+  return status === "queued" || status === "running";
+}
+
+function saveActiveBacktest(id: string): void {
+  try {
+    localStorage.setItem(ACTIVE_BACKTEST_KEY, id);
+  } catch {
+    // ignore
+  }
+}
+
+function clearActiveBacktest(id?: string): void {
+  try {
+    if (!id || localStorage.getItem(ACTIVE_BACKTEST_KEY) === id) {
+      localStorage.removeItem(ACTIVE_BACKTEST_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function loadActiveBacktest(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_BACKTEST_KEY);
+  } catch {
+    return null;
+  }
+}
 
 function defaultParams(s: StrategyName): Record<string, string> {
   switch (s) {
@@ -173,6 +209,49 @@ export function Backtesting() {
   const [error, setError] = useState<string | null>(null);
   const [tradesVisible, setTradesVisible] = useState(100);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const restore = async () => {
+      let activeId = loadActiveBacktest();
+      try {
+        if (!activeId) {
+          const jobs = await listBacktests(10);
+          const active = jobs.find((j) => isActive(j.status));
+          activeId = active?.id ?? null;
+          if (activeId) {
+            saveActiveBacktest(activeId);
+          }
+        }
+        if (!activeId) return;
+
+        const restored = await getBacktest(activeId);
+        if (cancelled) return;
+        setJobId(restored.id);
+        setJob(restored);
+        setTradesVisible(100);
+        if (isTerminal(restored.status)) {
+          clearActiveBacktest(restored.id);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        if (activeId) {
+          clearActiveBacktest(activeId);
+        }
+        setError(
+          err instanceof ApiHttpError
+            ? err.message
+            : "Не удалось восстановить активный backtest",
+        );
+      }
+    };
+
+    void restore();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Автозагрузка сделок: каждые 200мс +100 пока не покажем все
   useEffect(() => {
     if (!job?.result) return;
@@ -231,7 +310,8 @@ export function Backtesting() {
         const j = await getBacktest(jobId);
         if (cancelled) return;
         setJob(j);
-        if (j.status === "completed" || j.status === "failed") {
+        if (isTerminal(j.status)) {
+          clearActiveBacktest(j.id);
           return; // stop polling
         }
       } catch (err) {
@@ -242,8 +322,12 @@ export function Backtesting() {
       }
     };
     void tick();
+    if (job && isTerminal(job.status)) {
+      return () => {
+        cancelled = true;
+      };
+    }
     const interval = setInterval(() => {
-      if (job?.status === "completed" || job?.status === "failed") return;
       void tick();
     }, 2000);
     return () => {
@@ -269,6 +353,7 @@ export function Backtesting() {
         initial_balance: { USDT: initialBalance.trim() || "10000" },
       };
       const j = await runBacktest(body);
+      saveActiveBacktest(j.id);
       setJobId(j.id);
       setJob(j);
     } catch (err) {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { BalanceWidget } from "../app/components/dashboard/BalanceWidget";
+import { LogsProvider } from "../app/LogsContext";
 import * as balancesApi from "../api/balances";
 import type { BalanceSummaryOut } from "../api/types";
 import { ApiHttpError } from "../api/client";
@@ -8,6 +9,7 @@ import { ApiHttpError } from "../api/client";
 vi.mock("../api/balances");
 
 const mockFetchBalanceSummary = vi.mocked(balancesApi.fetchBalanceSummary);
+const ORIGINAL_WEBSOCKET = global.WebSocket;
 
 function makeSummary(overrides: Partial<BalanceSummaryOut> = {}): BalanceSummaryOut {
   return {
@@ -28,6 +30,9 @@ function makeSummary(overrides: Partial<BalanceSummaryOut> = {}): BalanceSummary
 describe("BalanceWidget", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
+    localStorage.removeItem("crypto.access_token");
+    global.WebSocket = ORIGINAL_WEBSOCKET;
   });
 
   it("shows loading spinner initially", () => {
@@ -88,5 +93,65 @@ describe("BalanceWidget", () => {
       expect(screen.getByText("Открытая прибыль/убыток")).toBeInTheDocument();
       expect(screen.getByText("Количество позиций")).toBeInTheDocument();
     });
+  });
+
+  it("refreshes balance every 5 seconds", async () => {
+    vi.useFakeTimers();
+    mockFetchBalanceSummary.mockResolvedValue(makeSummary());
+    render(<BalanceWidget />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(mockFetchBalanceSummary).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(5_000);
+      await Promise.resolve();
+    });
+
+    expect(mockFetchBalanceSummary).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes balance when the window receives focus", async () => {
+    mockFetchBalanceSummary.mockResolvedValue(makeSummary());
+    render(<BalanceWidget />);
+    await waitFor(() => expect(mockFetchBalanceSummary).toHaveBeenCalledTimes(1));
+
+    window.dispatchEvent(new Event("focus"));
+
+    await waitFor(() => expect(mockFetchBalanceSummary).toHaveBeenCalledTimes(2));
+  });
+
+  it("refreshes balance on websocket balance_update signal", async () => {
+    const sockets: Array<{ onmessage: ((event: MessageEvent) => void) | null; close: () => void }> = [];
+    class MockWebSocket {
+      onopen: (() => void) | null = null;
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onclose: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor() {
+        sockets.push(this);
+      }
+      close() {}
+    }
+    global.WebSocket = MockWebSocket as unknown as typeof WebSocket;
+    localStorage.setItem("crypto.access_token", "test-token");
+    mockFetchBalanceSummary.mockResolvedValue(makeSummary());
+
+    render(
+      <LogsProvider>
+        <BalanceWidget />
+      </LogsProvider>,
+    );
+    await waitFor(() => expect(mockFetchBalanceSummary).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(sockets.length).toBe(1));
+
+    act(() => {
+      sockets[0].onmessage?.({
+        data: JSON.stringify({ type: "balance_update", data: {} }),
+      } as MessageEvent);
+    });
+
+    await waitFor(() => expect(mockFetchBalanceSummary).toHaveBeenCalledTimes(2));
   });
 });

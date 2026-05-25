@@ -32,6 +32,7 @@ interface LogsContextValue {
   lines: LogLine[];
   wsState: WsState;
   paused: boolean;
+  lastBalanceUpdateAt: number;
   setPaused: (v: boolean | ((p: boolean) => boolean)) => void;
   clear: () => void;
   /** Внешняя инъекция строки лога (используется демо-режимом). */
@@ -80,6 +81,7 @@ export function LogsProvider({ children }: { children: ReactNode }) {
   const [lines, setLines] = useState<LogLine[]>(() => loadFromStorage());
   const [paused, setPaused] = useState(false);
   const [wsState, setWsState] = useState<WsState>("connecting");
+  const [lastBalanceUpdateAt, setLastBalanceUpdateAt] = useState(0);
 
   const idCounter = useRef(0);
   const pausedRef = useRef(false);
@@ -159,6 +161,7 @@ export function LogsProvider({ children }: { children: ReactNode }) {
               message: `${String(d.side ?? "").toUpperCase()} ${d.symbol ?? "?"} size=${d.size ?? "?"} price=${d.price ?? "?"} (${d.strategy ?? "?"})`,
             });
           } else if (msg.type === "balance_update") {
+            setLastBalanceUpdateAt(Date.now());
             append({
               time: new Date().toISOString(),
               level: "INFO",
@@ -202,8 +205,16 @@ export function LogsProvider({ children }: { children: ReactNode }) {
   }, [append]);
 
   const value = useMemo<LogsContextValue>(
-    () => ({ lines, wsState, paused, setPaused, clear, pushLog: append }),
-    [lines, wsState, paused, clear, append],
+    () => ({
+      lines,
+      wsState,
+      paused,
+      lastBalanceUpdateAt,
+      setPaused,
+      clear,
+      pushLog: append,
+    }),
+    [lines, wsState, paused, lastBalanceUpdateAt, clear, append],
   );
 
   return <LogsContext.Provider value={value}>{children}</LogsContext.Provider>;
@@ -215,4 +226,8 @@ export function useLogs(): LogsContextValue {
     throw new Error("useLogs must be used within a LogsProvider");
   }
   return ctx;
+}
+
+export function useLogsOptional(): LogsContextValue | null {
+  return useContext(LogsContext);
 }

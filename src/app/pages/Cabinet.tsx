@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Box,
   Card,
@@ -11,10 +11,6 @@ import {
   Chip,
   Alert,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   Tooltip,
 } from "@mui/material";
@@ -26,6 +22,7 @@ import {
   LockOutlined,
 } from "@mui/icons-material";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 
 import { useAuth } from "../../auth/AuthContext";
 import {
@@ -33,63 +30,25 @@ import {
   generateApiKey,
   deleteApiKey,
   getTwoFa,
-  setTwoFa,
+  setupTwoFa,
+  verifyTwoFa,
+  disableTwoFa,
   testConnection,
 } from "../../api/cabinet";
-import type { ApiKeyOut } from "../../api/types";
+import type { ApiKeyOut, ApiKeyCreateOut } from "../../api/types";
 import { ApiHttpError } from "../../api/client";
-
-function maskKey(key: string): string {
-  if (key.length <= 12) return key;
-  return `${key.slice(0, 8)}…${key.slice(-4)}`;
-}
-
-// Детерминированный псевдо-QR из 21×21 пикселей на основе хеша user.id.
-// Не криптостойко, нужен только для мок-демо.
-function pseudoQr(seed: string): boolean[][] {
-  let h = 2166136261 >>> 0;
-  for (const ch of seed) {
-    h ^= ch.charCodeAt(0);
-    h = Math.imul(h, 16777619);
-  }
-  const size = 21;
-  const grid: boolean[][] = [];
-  for (let y = 0; y < size; y++) {
-    const row: boolean[] = [];
-    for (let x = 0; x < size; x++) {
-      // три «глаза» QR — углы 7×7
-      const inEye =
-        (x < 7 && y < 7) ||
-        (x >= size - 7 && y < 7) ||
-        (x < 7 && y >= size - 7);
-      if (inEye) {
-        const ex = Math.min(x, size - 1 - x);
-        const ey = Math.min(y, size - 1 - y);
-        const lx = x < 7 ? x : size - 1 - x;
-        const ly = y < 7 ? y : size - 1 - y;
-        const onBorder = lx === 0 || ly === 0 || lx === 6 || ly === 6;
-        const innerSquare = lx >= 2 && lx <= 4 && ly >= 2 && ly <= 4;
-        row.push(onBorder || innerSquare || (ex === 6 && ey === 6));
-      } else {
-        h = (h ^ (x * 31 + y)) >>> 0;
-        h = Math.imul(h, 2654435761) >>> 0;
-        row.push((h & 1) === 1);
-      }
-    }
-    grid.push(row);
-  }
-  return grid;
-}
+import { PerplexityDialog } from "../components/PerplexityDialog";
 
 export function Cabinet() {
   const { user } = useAuth();
   const [keys, setKeys] = useState<ApiKeyOut[] | null>(null);
   const [twoFa, setTwoFaState] = useState(false);
   const [twoFaDialog, setTwoFaDialog] = useState(false);
+  const [otpauthUri, setOtpauthUri] = useState<string | null>(null);
   const [otpCode, setOtpCode] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [revealedKey, setRevealedKey] = useState<ApiKeyOut | null>(null);
+  const [revealedKey, setRevealedKey] = useState<ApiKeyCreateOut | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{
     keyId: string;
@@ -99,13 +58,10 @@ export function Cabinet() {
 
   useEffect(() => {
     void refresh();
-    void getTwoFa().then(setTwoFaState).catch(() => undefined);
+    void getTwoFa()
+      .then(setTwoFaState)
+      .catch(() => undefined);
   }, []);
-
-  const qrGrid = useMemo(
-    () => pseudoQr(user ? user.id : "anonymous"),
-    [user],
-  );
 
   async function refresh() {
     setError(null);
@@ -128,11 +84,20 @@ export function Cabinet() {
   async function onToggleTwoFa(checked: boolean) {
     if (checked) {
       setOtpCode("");
-      setTwoFaDialog(true);
+      setOtpauthUri(null);
+      try {
+        const res = await setupTwoFa();
+        setOtpauthUri(res.otpauth_uri);
+        setTwoFaDialog(true);
+      } catch (err) {
+        toast.error(
+          err instanceof ApiHttpError ? err.message : "Не удалось начать настройку 2FA",
+        );
+      }
       return;
     }
     try {
-      await setTwoFa(false);
+      await disableTwoFa();
       setTwoFaState(false);
       toast.success("2FA отключена");
     } catch (err) {
@@ -149,13 +114,14 @@ export function Cabinet() {
     }
     setConfirming(true);
     try {
-      await setTwoFa(true);
+      await verifyTwoFa(otpCode);
       setTwoFaState(true);
       setTwoFaDialog(false);
+      setOtpauthUri(null);
       toast.success("2FA включена");
     } catch (err) {
       toast.error(
-        err instanceof ApiHttpError ? err.message : "Не удалось включить 2FA",
+        err instanceof ApiHttpError ? err.message : "Неверный код",
       );
     } finally {
       setConfirming(false);
@@ -196,15 +162,22 @@ export function Cabinet() {
 
   async function onTest(k: ApiKeyOut) {
     if (!user) return;
+    // Тест может прийти только сразу после генерации — иначе у нас нет полного
+    // ключа (БД хранит только bcrypt-хеш). Поэтому тестируем именно
+    // «открытый» ключ из revealedKey, если он совпадает.
+    if (!revealedKey || revealedKey.id !== k.id) {
+      toast.error(
+        "Полный ключ доступен только при создании. Сгенерируйте новый и протестируйте сразу.",
+      );
+      return;
+    }
     setTestingId(k.id);
     setTestResult(null);
     try {
-      const res = await testConnection(k.key, user.id);
+      const res = await testConnection(revealedKey.key, user.id);
       setTestResult({ keyId: k.id, message: res.message });
     } catch (err) {
-      setError(
-        err instanceof ApiHttpError ? err.message : "Тест не удался",
-      );
+      setError(err instanceof ApiHttpError ? err.message : "Тест не удался");
     } finally {
       setTestingId(null);
     }
@@ -250,12 +223,8 @@ export function Cabinet() {
               </Box>
 
               <Box
-                className="client-id-row"
                 sx={{
-                  "& .copy-icon": {
-                    opacity: 0,
-                    transition: "opacity 0.15s",
-                  },
+                  "& .copy-icon": { opacity: 0, transition: "opacity 0.15s" },
                   "&:hover .copy-icon": { opacity: 1 },
                   "&:focus-within .copy-icon": { opacity: 1 },
                 }}
@@ -263,12 +232,7 @@ export function Cabinet() {
                 <Typography variant="caption" color="text.secondary">
                   Client ID
                 </Typography>
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  sx={{ mt: 0.5 }}
-                >
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                   <Typography
                     variant="body2"
                     sx={{
@@ -415,7 +379,7 @@ export function Cabinet() {
                             color="text.secondary"
                             sx={{ fontFamily: "monospace" }}
                           >
-                            {maskKey(k.key)} · создан{" "}
+                            {k.key_prefix}… · создан{" "}
                             {new Date(k.created_at).toLocaleString("ru-RU", {
                               dateStyle: "short",
                               timeStyle: "short",
@@ -424,12 +388,20 @@ export function Cabinet() {
                         </Box>
                       </Stack>
                       <Stack direction="row" spacing={0.5}>
-                        <Tooltip title="Тест подключения">
+                        <Tooltip
+                          title={
+                            revealedKey?.id === k.id
+                              ? "Тест подключения"
+                              : "Тест доступен только сразу после создания ключа"
+                          }
+                        >
                           <span>
                             <IconButton
                               size="small"
                               onClick={() => void onTest(k)}
-                              disabled={testingId === k.id}
+                              disabled={
+                                testingId === k.id || revealedKey?.id !== k.id
+                              }
                               aria-label="Тест подключения"
                             >
                               {testingId === k.id ? (
@@ -466,19 +438,44 @@ export function Cabinet() {
       </Stack>
 
       {/* ── Диалог настройки 2FA ────────────────────────────────────── */}
-      <Dialog
+      <PerplexityDialog
         open={twoFaDialog}
-        onClose={() => !confirming && setTwoFaDialog(false)}
+        onClose={() => {
+          setTwoFaDialog(false);
+          setOtpauthUri(null);
+        }}
+        title="Включение 2FA"
         maxWidth="xs"
-        fullWidth
+        disableClose={confirming}
+        actions={
+          <>
+            <Button
+              color="inherit"
+              onClick={() => {
+                setTwoFaDialog(false);
+                setOtpauthUri(null);
+              }}
+              disabled={confirming}
+            >
+              Отмена
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => void onConfirmTwoFa()}
+              disabled={confirming || otpCode.length !== 6}
+            >
+              {confirming ? "Включаем…" : "Подтвердить"}
+            </Button>
+          </>
+        }
       >
-        <DialogTitle>Включение 2FA</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2.5} alignItems="center">
-            <Typography variant="body2" color="text.secondary" textAlign="center">
-              Отсканируйте QR-код в приложении-аутентификаторе и введите
-              6-значный код для подтверждения.
-            </Typography>
+        <Stack spacing={2.5} alignItems="center">
+          <Typography variant="body2" color="text.secondary" textAlign="center">
+            Отсканируйте QR-код в приложении-аутентификаторе (Google Authenticator,
+            1Password, …) и введите 6-значный код для подтверждения.
+          </Typography>
+          {otpauthUri ? (
             <Box
               sx={{
                 p: 1.5,
@@ -487,59 +484,28 @@ export function Cabinet() {
                 display: "inline-block",
               }}
             >
-              <Box
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: `repeat(${qrGrid.length}, 8px)`,
-                  gridAutoRows: "8px",
-                  gap: 0,
-                }}
-              >
-                {qrGrid.flatMap((row, y) =>
-                  row.map((on, x) => (
-                    <Box
-                      key={`${y}-${x}`}
-                      sx={{
-                        bgcolor: on ? "#0a0a0a" : "#ffffff",
-                        width: 8,
-                        height: 8,
-                      }}
-                    />
-                  )),
-                )}
-              </Box>
+              <QRCodeSVG value={otpauthUri} size={200} bgColor="#ffffff" fgColor="#0a0a0a" />
             </Box>
-            <TextField
-              label="Код из приложения"
-              size="small"
-              value={otpCode}
-              onChange={(e) =>
-                setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
-              }
-              inputProps={{ inputMode: "numeric", autoComplete: "one-time-code" }}
-              fullWidth
-              disabled={confirming}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button
-            color="inherit"
-            onClick={() => setTwoFaDialog(false)}
+          ) : (
+            <CircularProgress size={32} />
+          )}
+          <TextField
+            label="Код из приложения"
+            size="small"
+            value={otpCode}
+            onChange={(e) =>
+              setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+            }
+            inputProps={{
+              inputMode: "numeric",
+              autoComplete: "one-time-code",
+              maxLength: 6,
+            }}
+            fullWidth
             disabled={confirming}
-          >
-            Отмена
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => void onConfirmTwoFa()}
-            disabled={confirming || otpCode.length !== 6}
-          >
-            {confirming ? "Включаем…" : "Подтвердить"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          />
+        </Stack>
+      </PerplexityDialog>
     </Box>
   );
 }

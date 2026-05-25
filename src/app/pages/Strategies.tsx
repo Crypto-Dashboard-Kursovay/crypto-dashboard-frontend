@@ -11,12 +11,9 @@ import {
   Alert,
   CircularProgress,
   IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
 } from "@mui/material";
+import { PerplexityDialog } from "../components/PerplexityDialog";
 import {
   Add,
   GridOn,
@@ -355,53 +352,53 @@ export function Strategies() {
         </Grid>
       )}
 
-      <Dialog open={editing !== null} onClose={() => setEditing(null)} fullWidth maxWidth="sm">
-        <DialogTitle>
-          Редактировать стратегию
-          {editing && (
-            <Typography variant="body2" color="text.secondary">
-              {editing.strategy_class} · {editing.symbol} · {editing.timeframe}
-            </Typography>
-          )}
-        </DialogTitle>
-        <DialogContent>
-          {editing && Object.keys(editParams).length === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-              У этой стратегии нет редактируемых параметров.
-            </Typography>
-          ) : (
-            <Grid container spacing={2} sx={{ mt: 0.5 }}>
-              {Object.entries(editParams).map(([key, value]) => (
-                <Grid size={{ xs: 12, sm: 6 }} key={key}>
-                  <TextField
-                    label={key}
-                    size="small"
-                    fullWidth
-                    value={value}
-                    disabled={savingEdit}
-                    onChange={(e) =>
-                      setEditParams((p) => ({ ...p, [key]: e.target.value }))
-                    }
-                  />
-                </Grid>
-              ))}
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button color="inherit" onClick={() => setEditing(null)} disabled={savingEdit}>
-            Отмена
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => void onSaveEdit()}
-            disabled={savingEdit}
-          >
-            {savingEdit ? "Сохраняем..." : "Сохранить"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <PerplexityDialog
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title="Редактировать стратегию"
+        subtitle={
+          editing ? `${editing.strategy_class} · ${editing.symbol} · ${editing.timeframe}` : undefined
+        }
+        disableClose={savingEdit}
+        actions={
+          <>
+            <Button color="inherit" onClick={() => setEditing(null)} disabled={savingEdit}>
+              Отмена
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => void onSaveEdit()}
+              disabled={savingEdit}
+            >
+              {savingEdit ? "Сохраняем..." : "Сохранить"}
+            </Button>
+          </>
+        }
+      >
+        {editing && Object.keys(editParams).length === 0 ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            У этой стратегии нет редактируемых параметров.
+          </Typography>
+        ) : (
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            {Object.entries(editParams).map(([key, value]) => (
+              <Grid size={{ xs: 12, sm: 6 }} key={key}>
+                <TextField
+                  label={key}
+                  size="small"
+                  fullWidth
+                  value={value}
+                  disabled={savingEdit}
+                  onChange={(e) =>
+                    setEditParams((p) => ({ ...p, [key]: e.target.value }))
+                  }
+                />
+              </Grid>
+            ))}
+          </Grid>
+        )}
+      </PerplexityDialog>
     </Box>
   );
 }

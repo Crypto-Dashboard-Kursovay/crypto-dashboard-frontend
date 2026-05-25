@@ -111,8 +111,17 @@ export interface CandleOut {
 export interface ApiKeyOut {
   id: string;
   label: string;
-  key: string;
+  key_prefix: string;
   created_at: string;
+}
+
+export interface ApiKeyCreateOut extends ApiKeyOut {
+  /** Полный секрет — приходит только при создании, в БД не хранится. */
+  key: string;
+}
+
+export interface TwoFaSetupOut {
+  otpauth_uri: string;
 }
 
 export interface TestConnectionOut {
