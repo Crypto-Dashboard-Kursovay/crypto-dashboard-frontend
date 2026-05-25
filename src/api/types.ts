@@ -105,3 +105,16 @@ export interface CandleOut {
   close: string;
   volume: string;
 }
+
+// --- Личный кабинет ---
+
+export interface ApiKeyOut {
+  id: string;
+  label: string;
+  key: string;
+  created_at: string;
+}
+
+export interface TestConnectionOut {
+  message: string;
+}

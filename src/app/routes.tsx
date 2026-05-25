@@ -8,6 +8,7 @@ import { Trades } from "./pages/Trades";
 import { Backtesting } from "./pages/Backtesting";
 import { Logs } from "./pages/Logs";
 import { Settings } from "./pages/Settings";
+import { Cabinet } from "./pages/Cabinet";
 import { Login } from "./pages/Login";
 import { AuthCallback } from "./pages/AuthCallback";
 
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
       { path: "backtesting", Component: Backtesting },
       { path: "logs", Component: Logs },
       { path: "settings", Component: Settings },
+      { path: "cabinet", Component: Cabinet },
     ],
   },
 ]);

@@ -409,15 +409,7 @@ export function Backtesting() {
                     fullWidth
                   />
 
-                  <Box
-                    sx={{
-                      p: 1.5,
-                      bgcolor: "background.default",
-                      borderRadius: 2,
-                      border: 1,
-                      borderColor: "divider",
-                    }}
-                  >
+                  <Box sx={{ mt: 1.5 }}>
                     <Typography
                       variant="caption"
                       fontWeight="bold"

@@ -8,8 +8,14 @@ import {
   Switch,
   FormControlLabel,
 } from "@mui/material";
-import { Menu as MenuIcon, Logout, CurrencyBitcoin } from "@mui/icons-material";
+import {
+  Menu as MenuIcon,
+  Logout,
+  CurrencyBitcoin,
+  AccountCircleOutlined,
+} from "@mui/icons-material";
 import { useTheme } from "@mui/material/styles";
+import { Link as RouterLink } from "react-router";
 
 import { useAuth } from "../../../auth/AuthContext";
 import { useMockData } from "../../MockDataContext";
@@ -86,14 +92,16 @@ export function Header({ drawerWidth, isResizing, handleDrawerToggle }: HeaderPr
                 }
               />
             </Tooltip>
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ display: { xs: "none", sm: "block" } }}
-              noWrap
-            >
-              {user.email}
-            </Typography>
+            <Tooltip title="Личный кабинет">
+              <IconButton
+                component={RouterLink}
+                to="/cabinet"
+                color="inherit"
+                aria-label="Личный кабинет"
+              >
+                <AccountCircleOutlined />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Выйти">
               <IconButton color="inherit" onClick={logout} aria-label="Выйти">
                 <Logout fontSize="small" />

@@ -7,6 +7,7 @@
 // демо-режиме гарантированно НЕ дёргают движок/биржи.
 
 import type {
+  ApiKeyOut,
   BalanceOut,
   BalanceSummaryOut,
   BotOut,
@@ -89,6 +90,8 @@ interface PersistedSession {
   trades: TradeOut[];
   freeCash: number;
   backtests: BacktestEntry[];
+  apiKeys?: ApiKeyOut[];
+  twoFaEnabled?: boolean;
 }
 
 class MockStore {
@@ -101,6 +104,8 @@ class MockStore {
   private trades: TradeOut[] = [];
   private backtests = new Map<string, BacktestEntry>();
   private freeCash = 10000;
+  private apiKeys: ApiKeyOut[] = [];
+  private twoFaEnabled = false;
 
   // ── Сессия ────────────────────────────────────────────────────────────────
 
@@ -180,6 +185,8 @@ class MockStore {
       this.trades = s.trades ?? [];
       this.freeCash = s.freeCash ?? 10000;
       this.backtests = new Map((s.backtests ?? []).map((e) => [e.job.id, e]));
+      this.apiKeys = s.apiKeys ?? [];
+      this.twoFaEnabled = s.twoFaEnabled ?? false;
       // Минимальная валидность: восстановили хотя бы ключи и ботов.
       return this.credentials.length > 0 && this.bots.length > 0;
     } catch {
@@ -198,6 +205,8 @@ class MockStore {
         trades: this.trades,
         freeCash: this.freeCash,
         backtests: [...this.backtests.values()],
+        apiKeys: this.apiKeys,
+        twoFaEnabled: this.twoFaEnabled,
       };
       localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
     } catch {
@@ -706,6 +715,45 @@ class MockStore {
       trades,
       equity_curve,
     };
+  }
+
+  // ── Личный кабинет (API ключи + 2FA) ──────────────────────────────────────
+
+  listApiKeys(): ApiKeyOut[] {
+    this.ensureSession();
+    return this.apiKeys.slice().sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  generateApiKey(label?: string): ApiKeyOut {
+    this.ensureSession();
+    const id = uuid();
+    const secret = `crypto_${uuid().replace(/-/g, "")}${uuid().replace(/-/g, "")}`;
+    const created: ApiKeyOut = {
+      id,
+      label: label?.trim() || `Ключ от ${new Date().toLocaleDateString("ru-RU")}`,
+      key: secret,
+      created_at: new Date().toISOString(),
+    };
+    this.apiKeys.push(created);
+    this.persist();
+    return created;
+  }
+
+  deleteApiKey(id: string): void {
+    this.ensureSession();
+    this.apiKeys = this.apiKeys.filter((k) => k.id !== id);
+    this.persist();
+  }
+
+  getTwoFa(): boolean {
+    this.ensureSession();
+    return this.twoFaEnabled;
+  }
+
+  setTwoFa(enabled: boolean): void {
+    this.ensureSession();
+    this.twoFaEnabled = enabled;
+    this.persist();
   }
 }
 

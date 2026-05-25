@@ -104,7 +104,18 @@ export function ChartWidget() {
               <Select
                 value={symbol}
                 onChange={(e) => setSymbol(e.target.value)}
-                sx={{ minWidth: 120 }}
+                sx={{
+                  minWidth: 120,
+                  bgcolor: "rgba(20, 20, 22, 0.6)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255, 255, 255, 0.12)",
+                  },
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "rgba(255, 255, 255, 0.25)",
+                  },
+                }}
               >
                 {SYMBOLS.map((s) => (
                   <MenuItem key={s} value={s}>
@@ -116,11 +127,14 @@ export function ChartWidget() {
             <Stack
               direction="row"
               spacing={0.5}
-              bgcolor="background.default"
               p={0.5}
-              borderRadius={1}
-              border={1}
-              borderColor="divider"
+              sx={{
+                bgcolor: "rgba(20, 20, 22, 0.6)",
+                border: "1px solid rgba(255, 255, 255, 0.12)",
+                borderRadius: 3,
+                backdropFilter: "blur(20px)",
+                WebkitBackdropFilter: "blur(20px)",
+              }}
             >
               {TIMEFRAMES.map((tf) => (
                 <Button
@@ -129,7 +143,7 @@ export function ChartWidget() {
                   variant={tf === timeframe ? "contained" : "text"}
                   color={tf === timeframe ? "primary" : "inherit"}
                   onClick={() => setTimeframe(tf)}
-                  sx={{ minWidth: 0, px: 1.5, py: 0.5 }}
+                  sx={{ minWidth: 0, px: 1.5, py: 0.5, borderRadius: 2 }}
                 >
                   {tf}
                 </Button>
@@ -203,6 +217,16 @@ export function ChartWidget() {
                 <Tooltip
                   labelFormatter={(t: string) => formatTimestamp(t, timeframe)}
                   formatter={(v: number) => [v.toFixed(2), "Цена"]}
+                  contentStyle={{
+                    backgroundColor: "rgba(20, 20, 22, 0.95)",
+                    border: "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: 8,
+                    backdropFilter: "blur(20px)",
+                    boxShadow: "0 10px 40px rgba(0, 0, 0, 0.4)",
+                  }}
+                  labelStyle={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}
+                  itemStyle={{ color: "#f8fafc", fontSize: 13 }}
+                  cursor={{ stroke: "rgba(255, 255, 255, 0.2)", strokeDasharray: "3 3" }}
                 />
                 <Line
                   type="monotone"

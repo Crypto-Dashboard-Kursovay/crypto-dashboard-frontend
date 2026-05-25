@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Outlet } from "react-router";
 import { Box, Drawer, useMediaQuery } from "@mui/material";
 import { useTheme } from "@mui/material/styles";
+import { Toaster } from "sonner";
 
 import { Sidebar } from "./layout/Sidebar";
 import { Header } from "./layout/Header";
@@ -142,6 +143,7 @@ export function Layout() {
       >
         <Outlet />
       </Box>
+      <Toaster richColors position="bottom-right" theme="dark" />
     </Box>
     </MockDataProvider>
     </LogsProvider>

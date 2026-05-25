@@ -25,7 +25,6 @@ import {
   Stop,
   DeleteOutline,
   Refresh,
-  EditOutlined,
 } from "@mui/icons-material";
 
 import { ApiHttpError } from "../../api/client";
@@ -260,38 +259,64 @@ export function Strategies() {
                     p: 2,
                   }}
                 >
-                  <Stack
-                    direction="row"
-                    justifyContent="space-between"
-                    alignItems="flex-start"
-                    mb={2}
+                  <Box
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Редактировать ${bot.strategy_class}`}
+                    onClick={() => onEdit(bot)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onEdit(bot);
+                      }
+                    }}
+                    sx={{
+                      cursor: "pointer",
+                      flexGrow: 1,
+                      display: "flex",
+                      flexDirection: "column",
+                      borderRadius: 2,
+                      transition: "opacity 0.15s",
+                      "&:hover": { opacity: 0.85 },
+                      "&:focus-visible": {
+                        outline: "1px solid rgba(255, 255, 255, 0.3)",
+                        outlineOffset: 4,
+                      },
+                    }}
                   >
-                    <Typography
-                      variant="h3"
-                      noWrap
-                      title={bot.strategy_class}
-                      sx={{ maxWidth: "65%" }}
+                    <Stack
+                      direction="row"
+                      justifyContent="space-between"
+                      alignItems="flex-start"
+                      mb={2}
                     >
-                      {bot.strategy_class}
-                    </Typography>
-                    <Chip
-                      label={STATUS_LABEL[bot.status] ?? bot.status}
-                      size="small"
-                      color={STATUS_COLOR[bot.status] ?? "default"}
-                      variant="outlined"
-                    />
-                  </Stack>
+                      <Typography
+                        variant="h3"
+                        noWrap
+                        title={bot.strategy_class}
+                        sx={{ maxWidth: "65%" }}
+                      >
+                        {bot.strategy_class}
+                      </Typography>
+                      <Chip
+                        label={STATUS_LABEL[bot.status] ?? bot.status}
+                        size="small"
+                        color={STATUS_COLOR[bot.status] ?? "default"}
+                        variant="outlined"
+                      />
+                    </Stack>
 
-                  <Stack spacing={1.25} mb={2} flexGrow={1}>
-                    <Row label="Пара" value={bot.symbol} />
-                    <Row label="Таймфрейм" value={bot.timeframe} />
-                    <Row
-                      label="Параметры"
-                      value={Object.entries(bot.params)
-                        .map(([k, v]) => `${k}=${String(v)}`)
-                        .join(", ") || "—"}
-                    />
-                  </Stack>
+                    <Stack spacing={1.25} mb={2} flexGrow={1}>
+                      <Row label="Пара" value={bot.symbol} />
+                      <Row label="Таймфрейм" value={bot.timeframe} />
+                      <Row
+                        label="Параметры"
+                        value={Object.entries(bot.params)
+                          .map(([k, v]) => `${k}=${String(v)}`)
+                          .join(", ") || "—"}
+                      />
+                    </Stack>
+                  </Box>
 
                   <Stack direction="row" spacing={1} mt="auto">
                     <Button
@@ -314,14 +339,6 @@ export function Strategies() {
                     >
                       Stop
                     </Button>
-                    <IconButton
-                      color="inherit"
-                      onClick={() => onEdit(bot)}
-                      disabled={isBusy}
-                      aria-label="Редактировать бота"
-                    >
-                      <EditOutlined />
-                    </IconButton>
                     <IconButton
                       color="error"
                       onClick={() => onDelete(bot.id)}
